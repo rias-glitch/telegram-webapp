@@ -265,7 +265,47 @@ func (r *Room) handleRegister(c *Client) {
 
 
 	if len(r.Clients) == 2 {
-		log.Printf("Room.handleRegister: room=%s BOTH PLAYERS REGISTERED; hub will start game", r.ID)
+		log.Printf("Room.handleRegister: room=%s BOTH PLAYERS REGISTERED; sending matched messages", r.ID)
+
+		// Send 'matched' message to both players
+		players := r.game.Players()
+		p1, p2 := players[0], players[1]
+
+		// Get client references
+		c1 := r.Clients[p1]
+		c2 := r.Clients[p2]
+
+		// Send matched to player 1
+		if c1 != nil {
+			matchMsg1 := Message{
+				Type: "matched",
+				Payload: map[string]any{
+					"room_id":  r.ID,
+					"opponent": map[string]any{
+						"id": p2,
+					},
+				},
+			}
+			r.mu.Unlock()
+			r.send(p1, matchMsg1)
+			r.mu.Lock()
+		}
+
+		// Send matched to player 2
+		if c2 != nil {
+			matchMsg2 := Message{
+				Type: "matched",
+				Payload: map[string]any{
+					"room_id":  r.ID,
+					"opponent": map[string]any{
+						"id": p1,
+					},
+				},
+			}
+			r.mu.Unlock()
+			r.send(p2, matchMsg2)
+			r.mu.Lock()
+		}
 	} else {
 		log.Printf("Room.handleRegister: room=%s waiting for second player (have %d)", r.ID, len(r.Clients))
 	}

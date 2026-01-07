@@ -57,20 +57,27 @@ export function useWebSocket(gameType = 'rps') {
   }, [gameType])
 
   const handleMessage = useCallback((msg) => {
+    // Backend sends data in 'payload' field
+    const payload = msg.payload || {}
+
     switch (msg.type) {
       case 'matched':
         setStatus('matched')
-        setOpponent(msg.opponent)
-        setRoomId(msg.room_id)
+        setOpponent(payload.opponent)
+        setRoomId(payload.room_id)
         break
 
       case 'start':
         setStatus('playing')
-        setGameState(msg.state)
+        setGameState(payload)
         break
 
       case 'state':
-        setGameState(msg.state)
+        setGameState(payload)
+        break
+
+      case 'setup_complete':
+        setGameState({ type: 'setup_complete' })
         break
 
       case 'result':
