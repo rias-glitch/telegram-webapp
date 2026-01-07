@@ -249,6 +249,9 @@ func (r *Room) checkRound() {
 		if !r.game.IsFinished() {
 			log.Printf("Room.checkRound: round draw, starting next round in room %s", r.ID)
 
+			// For Mines game, send round results to each player
+			r.sendMinesRoundResult()
+
 			// Send draw notification to clients before starting new round
 			r.mu.RLock()
 			clients := make(map[int64]*Client, len(r.Clients))
@@ -268,6 +271,9 @@ func (r *Room) checkRound() {
 		}
 		return
 	}
+
+	// For Mines game, send final round result before game result
+	r.sendMinesRoundResult()
 
 	// Отправляем результат (this function handles its own locking)
 	r.broadcastResult(result)
@@ -625,6 +631,68 @@ func (r *Room) broadcast(msg Message) {
 		r.send(c.UserID, msg)
 	}
 }
+
+// sendMinesRoundResult sends round result to each player for Mines game
+func (r *Room) sendMinesRoundResult() {
+	if r.game.Type() != game.TypeMines {
+		return
+	}
+
+	minesGame, ok := r.game.(*game.MinesGame)
+	if !ok {
+		return
+	}
+
+	roundResult := minesGame.GetLastRoundResult()
+	if roundResult == nil {
+		return
+	}
+
+	players := r.game.Players()
+	p1, p2 := players[0], players[1]
+
+	r.mu.RLock()
+	c1 := r.Clients[p1]
+	c2 := r.Clients[p2]
+	r.mu.RUnlock()
+
+	// Send to player 1 - their move result and history
+	if c1 != nil {
+		myMove := roundResult.PlayerMoves[p1]
+		oppMove := roundResult.PlayerMoves[p2]
+		r.send(p1, Message{
+			Type: "round_result",
+			Payload: map[string]any{
+				"round":        roundResult.Round,
+				"your_move":    myMove.Cell,
+				"your_hit":     myMove.HitMine,
+				"opponent_move": oppMove.Cell,
+				"opponent_hit": oppMove.HitMine,
+				"history":      minesGame.GetMoveHistory(p1),
+			},
+		})
+	}
+
+	// Send to player 2 - their move result and history
+	if c2 != nil {
+		myMove := roundResult.PlayerMoves[p2]
+		oppMove := roundResult.PlayerMoves[p1]
+		r.send(p2, Message{
+			Type: "round_result",
+			Payload: map[string]any{
+				"round":        roundResult.Round,
+				"your_move":    myMove.Cell,
+				"your_hit":     myMove.HitMine,
+				"opponent_move": oppMove.Cell,
+				"opponent_hit": oppMove.HitMine,
+				"history":      minesGame.GetMoveHistory(p2),
+			},
+		})
+	}
+
+	log.Printf("Room.sendMinesRoundResult: sent round %d results to players", roundResult.Round)
+}
+
 func (r *Room) saveResult() {
 	result := r.game.CheckResult()
 	if result == nil {

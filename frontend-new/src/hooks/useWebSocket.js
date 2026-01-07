@@ -7,6 +7,8 @@ export function useWebSocket(gameType = 'rps') {
   const [roomId, setRoomId] = useState(null)
   const [gameState, setGameState] = useState(null)
   const [result, setResult] = useState(null)
+  const [roundResult, setRoundResult] = useState(null) // Last round result for Mines
+  const [moveHistory, setMoveHistory] = useState([]) // History of player's moves
 
   const wsRef = useRef(null)
   const handlersRef = useRef({})
@@ -85,6 +87,14 @@ export function useWebSocket(gameType = 'rps') {
         setGameState({ type: 'round_draw', timestamp: Date.now() })
         break
 
+      case 'round_result':
+        // Mines game - round result with move details
+        setRoundResult(payload)
+        if (payload.history) {
+          setMoveHistory(payload.history)
+        }
+        break
+
       case 'result':
         setResult(msg)
         setStatus('disconnected')
@@ -118,6 +128,8 @@ export function useWebSocket(gameType = 'rps') {
     setRoomId(null)
     setGameState(null)
     setResult(null)
+    setRoundResult(null)
+    setMoveHistory([])
   }, [])
 
   const onMessage = useCallback((type, handler) => {
@@ -138,6 +150,8 @@ export function useWebSocket(gameType = 'rps') {
     roomId,
     gameState,
     result,
+    roundResult,
+    moveHistory,
     connect,
     send,
     disconnect,

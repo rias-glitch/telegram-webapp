@@ -15,6 +15,21 @@ type MinesGame struct {
 	round    int
 	result   *GameResult
 	mu       sync.RWMutex
+	// History of moves for each player: playerID -> []MoveResult
+	moveHistory map[int64][]MoveResult
+	// Last round result for sending to clients
+	lastRoundResult *RoundResult
+}
+
+type MoveResult struct {
+	Cell   int  `json:"cell"`
+	HitMine bool `json:"hit_mine"`
+	Round  int  `json:"round"`
+}
+
+type RoundResult struct {
+	Round       int                  `json:"round"`
+	PlayerMoves map[int64]MoveResult `json:"player_moves"`
 }
 
 type Board struct {
@@ -27,8 +42,12 @@ func NewMinesGame(id string, players [2]int64) *MinesGame {
 		players:     players,
 		boards:      make(map[int64]*Board),
 		moves:       make(map[int64]int),
+		moveHistory: make(map[int64][]MoveResult),
 	}
 	// Don't initialize boards here - they get created during setup phase
+	// Initialize empty move history for both players
+	g.moveHistory[players[0]] = []MoveResult{}
+	g.moveHistory[players[1]] = []MoveResult{}
 	return g
 }
 
@@ -145,22 +164,42 @@ func (g *MinesGame) CheckResult() *GameResult {
 
 	log.Printf("MinesGame.CheckResult: p1_hit=%v p2_hit=%v", hit1, hit2)
 
+	// Save move history for both players
+	move1 := MoveResult{Cell: g.moves[p1], HitMine: hit1, Round: g.round}
+	move2 := MoveResult{Cell: g.moves[p2], HitMine: hit2, Round: g.round}
+	g.moveHistory[p1] = append(g.moveHistory[p1], move1)
+	g.moveHistory[p2] = append(g.moveHistory[p2], move2)
+
+	// Save last round result for clients
+	g.lastRoundResult = &RoundResult{
+		Round: g.round,
+		PlayerMoves: map[int64]MoveResult{
+			p1: move1,
+			p2: move2,
+		},
+	}
+
 	// Один подорвался
 	if hit1 && !hit2 {
 		log.Printf("MinesGame.CheckResult: p2 wins (p1 hit mine)")
-		g.result = &GameResult{WinnerID: &p2, Reason: "opponent_hit_mine"}
+		g.result = &GameResult{WinnerID: &p2, Reason: "opponent_hit_mine", Details: g.getResultDetails()}
 		return g.result
 	}
 	if hit2 && !hit1 {
 		log.Printf("MinesGame.CheckResult: p1 wins (p2 hit mine)")
-		g.result = &GameResult{WinnerID: &p1, Reason: "opponent_hit_mine"}
+		g.result = &GameResult{WinnerID: &p1, Reason: "opponent_hit_mine", Details: g.getResultDetails()}
 		return g.result
+	}
+
+	// Оба подорвались - ничья в раунде, но игра продолжается
+	if hit1 && hit2 {
+		log.Printf("MinesGame.CheckResult: both hit mines, round draw")
 	}
 
 	// 5 раундов прошло
 	if g.round >= 5 {
 		log.Printf("MinesGame.CheckResult: draw (5 rounds)")
-		g.result = &GameResult{WinnerID: nil, Reason: "draw"}
+		g.result = &GameResult{WinnerID: nil, Reason: "draw", Details: g.getResultDetails()}
 		return g.result
 	}
 
@@ -168,6 +207,35 @@ func (g *MinesGame) CheckResult() *GameResult {
 	log.Printf("MinesGame.CheckResult: continue to round %d", g.round+1)
 	g.moves = make(map[int64]int)
 	return nil
+}
+
+// getResultDetails returns game details for the result
+func (g *MinesGame) getResultDetails() map[string]interface{} {
+	return map[string]interface{}{
+		"rounds":      g.round,
+		"moveHistory": g.moveHistory,
+	}
+}
+
+// GetLastRoundResult returns the last round result (for sending to clients)
+func (g *MinesGame) GetLastRoundResult() *RoundResult {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.lastRoundResult
+}
+
+// GetMoveHistory returns move history for a player
+func (g *MinesGame) GetMoveHistory(playerID int64) []MoveResult {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.moveHistory[playerID]
+}
+
+// GetRound returns current round number
+func (g *MinesGame) GetRound() int {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.round
 }
 
 
