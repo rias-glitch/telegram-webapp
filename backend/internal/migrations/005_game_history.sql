@@ -2,7 +2,14 @@
 -- Заменяет старую таблицу games
 
 -- Переименовываем старую таблицу (сохраняем данные на всякий случай)
-ALTER TABLE IF EXISTS games RENAME TO games_old;
+-- Только если games существует и games_old не существует
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'games')
+       AND NOT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'games_old') THEN
+        ALTER TABLE games RENAME TO games_old;
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS game_history (
     id BIGSERIAL PRIMARY KEY,
