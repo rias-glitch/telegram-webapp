@@ -226,6 +226,12 @@ func (r *Room) broadcastToClients(clients map[int64]*Client, msg Message) {
 }
 
 func (r *Room) checkRound() {
+	// Don't check result if round is not complete - prevents multiple startRound calls
+	if !r.game.IsRoundComplete() {
+		log.Printf("Room.checkRound: round not complete yet in room=%s", r.ID)
+		return
+	}
+
 	// debug: log players and connected clients
 	r.mu.RLock()
 	clientIDs := make([]int64, 0, len(r.Clients))
@@ -242,6 +248,22 @@ func (r *Room) checkRound() {
 		// Round was a draw or both players had same outcome - continue to next round
 		if !r.game.IsFinished() {
 			log.Printf("Room.checkRound: round draw, starting next round in room %s", r.ID)
+
+			// Send draw notification to clients before starting new round
+			r.mu.RLock()
+			clients := make(map[int64]*Client, len(r.Clients))
+			for k, v := range r.Clients {
+				clients[k] = v
+			}
+			r.mu.RUnlock()
+
+			r.broadcastToClients(clients, Message{
+				Type: "round_draw",
+				Payload: map[string]any{
+					"message": "Round ended in draw, starting next round",
+				},
+			})
+
 			r.startRound()
 		}
 		return

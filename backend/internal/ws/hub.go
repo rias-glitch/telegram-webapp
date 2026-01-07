@@ -83,8 +83,15 @@ func (h *Hub) AssignClient(c *Client) *Room {
 						h.mu.Unlock()
 
 						log.Printf("Hub.AssignClient: about to register user=%d to room=%s", c.UserID, foundRoom.ID)
-						foundRoom.Register <- c
-						log.Printf("Hub.AssignClient: registered user=%d to room=%s", c.UserID, foundRoom.ID)
+
+						// Non-blocking send to avoid deadlock
+						select {
+						case foundRoom.Register <- c:
+							log.Printf("Hub.AssignClient: registered user=%d to room=%s", c.UserID, foundRoom.ID)
+						case <-time.After(5 * time.Second):
+							log.Printf("Hub.AssignClient: TIMEOUT registering user=%d to room=%s", c.UserID, foundRoom.ID)
+							return nil
+						}
 
 						return foundRoom
 					}
@@ -133,7 +140,15 @@ func (h *Hub) AssignClient(c *Client) *Room {
 	h.mu.Unlock()
 
 	log.Printf("Hub.AssignClient: registering user=%d to NEW room=%s", c.UserID, room.ID)
-	room.Register <- c
+
+	// Non-blocking send to avoid deadlock if room.Run() has exited
+	select {
+	case room.Register <- c:
+		log.Printf("Hub.AssignClient: successfully registered user=%d to room=%s", c.UserID, room.ID)
+	case <-time.After(5 * time.Second):
+		log.Printf("Hub.AssignClient: TIMEOUT registering user=%d to room=%s - room may have exited", c.UserID, room.ID)
+		return nil
+	}
 
 	return room
 }

@@ -80,6 +80,11 @@ export function useWebSocket(gameType = 'rps') {
         setGameState({ type: 'setup_complete' })
         break
 
+      case 'round_draw':
+        // Round ended in draw - trigger state update so components reset
+        setGameState({ type: 'round_draw', timestamp: Date.now() })
+        break
+
       case 'result':
         setResult(msg)
         setStatus('disconnected')
