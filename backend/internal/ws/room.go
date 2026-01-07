@@ -265,47 +265,52 @@ func (r *Room) handleRegister(c *Client) {
 
 
 	if len(r.Clients) == 2 {
-		log.Printf("Room.handleRegister: room=%s BOTH PLAYERS REGISTERED; sending matched messages", r.ID)
+		log.Printf("Room.handleRegister: room=%s BOTH PLAYERS REGISTERED; will send matched messages", r.ID)
 
-		// Send 'matched' message to both players
+		// Collect data while holding lock
 		players := r.game.Players()
 		p1, p2 := players[0], players[1]
-
-		// Get client references
 		c1 := r.Clients[p1]
 		c2 := r.Clients[p2]
 
-		// Send matched to player 1
+		// Release lock before sending to avoid deadlock
+		r.mu.Unlock()
+
+		// Send matched to both players
 		if c1 != nil {
-			matchMsg1 := Message{
+			data1, _ := json.Marshal(Message{
 				Type: "matched",
 				Payload: map[string]any{
 					"room_id":  r.ID,
-					"opponent": map[string]any{
-						"id": p2,
-					},
+					"opponent": map[string]any{"id": p2},
 				},
+			})
+			select {
+			case c1.Send <- data1:
+				log.Printf("Room.handleRegister: sent matched to p1=%d", p1)
+			case <-time.After(1 * time.Second):
+				log.Printf("Room.handleRegister: timeout sending matched to p1=%d", p1)
 			}
-			r.mu.Unlock()
-			r.send(p1, matchMsg1)
-			r.mu.Lock()
 		}
 
-		// Send matched to player 2
 		if c2 != nil {
-			matchMsg2 := Message{
+			data2, _ := json.Marshal(Message{
 				Type: "matched",
 				Payload: map[string]any{
 					"room_id":  r.ID,
-					"opponent": map[string]any{
-						"id": p1,
-					},
+					"opponent": map[string]any{"id": p1},
 				},
+			})
+			select {
+			case c2.Send <- data2:
+				log.Printf("Room.handleRegister: sent matched to p2=%d", p2)
+			case <-time.After(1 * time.Second):
+				log.Printf("Room.handleRegister: timeout sending matched to p2=%d", p2)
 			}
-			r.mu.Unlock()
-			r.send(p2, matchMsg2)
-			r.mu.Lock()
 		}
+
+		// Re-acquire lock
+		r.mu.Lock()
 	} else {
 		log.Printf("Room.handleRegister: room=%s waiting for second player (have %d)", r.ID, len(r.Clients))
 	}
@@ -384,10 +389,35 @@ func (r *Room) HandleMessage(c *Client, raw []byte) {
 		return
 	}
 
-	log.Printf("Room.HandleMessage: room=%s user=%d type=%s", r.ID, c.UserID, msg.Type)
+	log.Printf("Room.HandleMessage: room=%s user=%d type=%s value=%v valueType=%T", r.ID, c.UserID, msg.Type, msg.Value, msg.Value)
+
+	// Convert value to appropriate type for the game
+	var moveValue interface{} = msg.Value
+
+	// For RPS, value should be a string
+	// For Mines setup, value should be []int
+	// For Mines move, value should be int
+	if r.game.Type() == "mines" {
+		// Handle setup (array of mine positions)
+		if arr, ok := msg.Value.([]interface{}); ok {
+			intArr := make([]int, len(arr))
+			for i, v := range arr {
+				if num, ok := v.(float64); ok {
+					intArr[i] = int(num)
+				}
+			}
+			moveValue = intArr
+			log.Printf("Room.HandleMessage: converted mines setup value to []int: %v", intArr)
+		}
+		// Handle move (single cell number)
+		if num, ok := msg.Value.(float64); ok {
+			moveValue = int(num)
+			log.Printf("Room.HandleMessage: converted mines move value to int: %d", int(num))
+		}
+	}
 
 	// Обрабатываем ход через игру
-	if err := r.game.HandleMove(c.UserID, msg.Value); err != nil {
+	if err := r.game.HandleMove(c.UserID, moveValue); err != nil {
 		log.Printf("Room.HandleMessage: invalid move from user=%d: %v", c.UserID, err)
 		r.send(c.UserID, Message{
 			Type: "error",

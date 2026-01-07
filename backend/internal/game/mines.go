@@ -23,16 +23,12 @@ type Board struct {
 
 func NewMinesGame(id string, players [2]int64) *MinesGame {
 	g := &MinesGame{
-		id:      id,
-		players: players,
-		boards:  make(map[int64]*Board),
-		moves:   make(map[int64]int),
+		id:          id,
+		players:     players,
+		boards:      make(map[int64]*Board),
+		moves:       make(map[int64]int),
 	}
-
-	// Инициализируем пустые поля для обоих игроков
-	g.boards[players[0]] = &Board{}
-	g.boards[players[1]] = &Board{}
-
+	// Don't initialize boards here - they get created during setup phase
 	return g
 }
 
@@ -44,21 +40,59 @@ func (g *MinesGame) TurnTimeout() time.Duration { return 10 * time.Second }
 func (g *MinesGame) IsSetupComplete() bool {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return len(g.boards) == 2
+	return g.isSetupCompleteUnlocked()
 }
+
+// isSetupCompleteUnlocked - internal version without locking (caller must hold lock)
+func (g *MinesGame) isSetupCompleteUnlocked() bool {
+	// Both players must have boards with mines placed
+	if len(g.boards) < 2 {
+		return false
+	}
+	for _, board := range g.boards {
+		if board == nil {
+			return false
+		}
+		// Check if at least one mine is placed
+		hasMine := false
+		for _, m := range board.mines {
+			if m {
+				hasMine = true
+				break
+			}
+		}
+		if !hasMine {
+			return false
+		}
+	}
+	return true
+}
+
 func (g *MinesGame) HandleSetup(playerID int64, data interface{}) error {
 	return g.HandleMove(playerID, data)  // Setup = тот же HandleMove
 }
+
 func (g *MinesGame) HandleMove(playerID int64, data interface{}) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	// Setup phase
-	if !g.IsSetupComplete() {
+	log.Printf("MinesGame.HandleMove: player=%d data=%v dataType=%T setupComplete=%v", playerID, data, data, g.isSetupCompleteUnlocked())
+
+	// Setup phase - placing mines
+	if !g.isSetupCompleteUnlocked() {
 		positions, ok := data.([]int)
 		if !ok || len(positions) != 4 {
-			// Бот расставляет мины на 1,2,3,4
-			positions = []int{1, 2, 3, 4}
+			log.Printf("MinesGame.HandleMove: invalid setup data, using bot positions")
+			// Бот расставляет мины случайно
+			positions = []int{}
+			used := make(map[int]bool)
+			for len(positions) < 4 {
+				pos := rand.Intn(12) + 1
+				if !used[pos] {
+					used[pos] = true
+					positions = append(positions, pos)
+				}
+			}
 		}
 
 		board := &Board{}
@@ -68,17 +102,20 @@ func (g *MinesGame) HandleMove(playerID int64, data interface{}) error {
 			}
 		}
 		g.boards[playerID] = board
+		log.Printf("MinesGame.HandleMove: player=%d placed mines at %v, boards=%d", playerID, positions, len(g.boards))
 		return nil
 	}
 
-	// Playing phase
+	// Playing phase - selecting cell on opponent's board
 	position, ok := data.(int)
 	if !ok || position < 1 || position > 12 {
+		log.Printf("MinesGame.HandleMove: invalid move data, using random position")
 		// Бот выбирает случайную клетку
 		position = rand.Intn(12) + 1
 	}
 
 	g.moves[playerID] = position
+	log.Printf("MinesGame.HandleMove: player=%d selected cell %d, moves=%v", playerID, position, g.moves)
 	return nil
 }
 
