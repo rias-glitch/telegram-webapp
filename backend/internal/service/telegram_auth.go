@@ -33,8 +33,11 @@ func ValidateTelegramInitData(initData, botToken string) (url.Values, bool) {
 	sort.Strings(dataCheck)
 	dataString := strings.Join(dataCheck, "\n")
 
-	secret := sha256.Sum256([]byte(botToken))
-	h := hmac.New(sha256.New, secret[:])
+	// Telegram WebApp uses HMAC with "WebAppData" as key
+	secretKey := hmac.New(sha256.New, []byte("WebAppData"))
+	secretKey.Write([]byte(botToken))
+	secret := secretKey.Sum(nil)
+	h := hmac.New(sha256.New, secret)
 	h.Write([]byte(dataString))
 
 	calculated := h.Sum(nil)
