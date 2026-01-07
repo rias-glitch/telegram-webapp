@@ -176,6 +176,7 @@ func (r *Room) startRound() {
 	r.broadcastToClients(clients, Message{
 		Type: "start",
 		Payload: map[string]any{
+			"type":      "start",
 			"timestamp": time.Now().UnixMilli(),
 		},
 	})
