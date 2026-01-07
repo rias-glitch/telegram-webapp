@@ -1,6 +1,6 @@
 module telegram_webapp
 
-go 1.21
+go 1.23
 
 require (
 	github.com/gin-gonic/gin v1.11.0
