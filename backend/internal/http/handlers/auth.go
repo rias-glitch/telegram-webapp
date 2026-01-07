@@ -69,8 +69,14 @@ func (h *Handler) Auth(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"user_id": user.ID,
-			"token":   token,
+			"token": token,
+			"user": gin.H{
+				"id":         user.ID,
+				"tg_id":      user.TgID,
+				"username":   user.Username,
+				"first_name": user.FirstName,
+				"gems":       user.Gems,
+			},
 		})
 		return
 	}
@@ -131,7 +137,13 @@ func (h *Handler) Auth(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user_id": user.ID,
-		"token":   token,
+		"token": token,
+		"user": gin.H{
+			"id":         user.ID,
+			"tg_id":      user.TgID,
+			"username":   user.Username,
+			"first_name": user.FirstName,
+			"gems":       user.Gems,
+		},
 	})
 }

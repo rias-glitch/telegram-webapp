@@ -40,5 +40,6 @@ func (h *Handler) Me(c *gin.Context) {
 		"username":   user.Username,
 		"first_name": user.FirstName,
 		"created_at": user.CreatedAt,
+		"gems":       user.Gems,
 	})
 }
