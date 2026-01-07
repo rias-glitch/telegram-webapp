@@ -1,0 +1,171 @@
+import { useState } from 'react'
+import { Modal } from '../ui/Overlay'
+import { Button } from '../ui'
+import { Input } from '../ui'
+import { playRPS } from '../../api/games'
+
+const BET_PRESETS = [10, 50, 100, 500]
+const MOVES = [
+  { id: 'rock', icon: '🪨', label: 'Rock' },
+  { id: 'paper', icon: '📄', label: 'Paper' },
+  { id: 'scissors', icon: '✂️', label: 'Scissors' },
+]
+
+export function RPSGame({ user, onClose, onResult }) {
+  const [bet, setBet] = useState(10)
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [selectedMove, setSelectedMove] = useState(null)
+
+  const handlePlay = async (move) => {
+    if (bet <= 0 || bet > (user?.gems || 0)) return
+
+    try {
+      setLoading(true)
+      setSelectedMove(move)
+      setResult(null)
+
+      const response = await playRPS(bet, move)
+
+      // Animation delay
+      setTimeout(() => {
+        setResult(response)
+        onResult(response.gems)
+      }, 1000)
+    } catch (err) {
+      setResult({ error: err.message })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const playAgain = () => {
+    setResult(null)
+    setSelectedMove(null)
+  }
+
+  const getResultText = () => {
+    if (!result) return ''
+    if (result.result === 1) return 'YOU WON!'
+    if (result.result === 0) return 'DRAW'
+    return 'YOU LOST'
+  }
+
+  const getResultColor = () => {
+    if (!result) return ''
+    if (result.result === 1) return 'text-success'
+    if (result.result === 0) return 'text-yellow-400'
+    return 'text-danger'
+  }
+
+  const getMoveIcon = (move) => MOVES.find(m => m.id === move)?.icon || '❓'
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Rock Paper Scissors">
+      <div className="space-y-6">
+        {/* Battle display */}
+        {result && (
+          <div className="flex items-center justify-center gap-4 py-4">
+            <div className="text-center">
+              <div className="text-5xl mb-2">{getMoveIcon(result.move)}</div>
+              <div className="text-sm text-white/60">You</div>
+            </div>
+            <div className="text-2xl text-white/40">VS</div>
+            <div className="text-center">
+              <div className="text-5xl mb-2">{getMoveIcon(result.bot)}</div>
+              <div className="text-sm text-white/60">Bot</div>
+            </div>
+          </div>
+        )}
+
+        {/* Result */}
+        {result && !result.error && (
+          <div className="text-center space-y-2">
+            <div className={`text-2xl font-bold ${getResultColor()}`}>
+              {getResultText()}
+            </div>
+            <div className="text-white/60">
+              {result.result === 1 && `+${result.awarded} gems`}
+              {result.result === -1 && `-${bet} gems`}
+              {result.result === 0 && 'Bet returned'}
+            </div>
+          </div>
+        )}
+
+        {result?.error && (
+          <div className="text-center text-danger">{result.error}</div>
+        )}
+
+        {/* Move selection */}
+        {!result && (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm text-white/60">Bet amount</label>
+              <Input
+                type="number"
+                value={bet}
+                onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 0))}
+                min={1}
+                max={user?.gems || 0}
+              />
+              <div className="flex gap-2">
+                {BET_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => setBet(preset)}
+                    className={`flex-1 py-1 rounded-lg text-sm transition-colors ${
+                      bet === preset
+                        ? 'bg-primary text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="text-center text-white/60 text-sm">
+              Balance: {user?.gems?.toLocaleString() || 0} gems
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-white/60 text-center block">Choose your move</label>
+              <div className="grid grid-cols-3 gap-3">
+                {MOVES.map((move) => (
+                  <button
+                    key={move.id}
+                    onClick={() => handlePlay(move.id)}
+                    disabled={loading || bet <= 0 || bet > (user?.gems || 0)}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+                  >
+                    <span className="text-4xl">{move.icon}</span>
+                    <span className="text-sm">{move.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Actions */}
+        {result && (
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={onClose} className="flex-1">
+              Close
+            </Button>
+            <Button onClick={playAgain} className="flex-1">
+              Play Again
+            </Button>
+          </div>
+        )}
+
+        {!result && (
+          <Button variant="secondary" onClick={onClose} className="w-full">
+            Cancel
+          </Button>
+        )}
+      </div>
+    </Modal>
+  )
+}

@@ -1,0 +1,8 @@
+-- Create users table used by the application
+CREATE TABLE IF NOT EXISTS users (
+	id BIGSERIAL PRIMARY KEY,
+	tg_id BIGINT UNIQUE NOT NULL,
+	username TEXT,
+	first_name TEXT,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

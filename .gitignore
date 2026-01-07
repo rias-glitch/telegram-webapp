@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+frontend-new/node_modules/
+
+# Environment files
+.env
+backend/.env
+
+# Build outputs
+frontend/
+backend/app.exe
+backend/app.log
+*.exe
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vite cache
+.vite/
+frontend-new/node_modules/.vite/
