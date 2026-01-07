@@ -49,13 +49,18 @@ export function PvPMinesGame({ user, onClose, onResult }) {
     }
   }, [result])
 
-  // Handle setup_complete message
+  // Handle setup_complete message and new rounds
   useEffect(() => {
     if (gameState?.type === 'setup_complete') {
       setPhase('playing')
     }
     if (gameState?.round) {
       setRound(gameState.round)
+    }
+    // New round started (timestamp changed) - reset selection
+    if (gameState?.timestamp && phase === 'playing') {
+      setSelectedCell(null)
+      setWaitingForOpponent(false)
     }
   }, [gameState])
 

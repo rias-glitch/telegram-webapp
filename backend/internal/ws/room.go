@@ -171,8 +171,14 @@ func (r *Room) startRound() {
 	})
 	r.mu.Unlock()
 
-	// Send without lock to avoid deadlock
-	r.broadcastToClients(clients, Message{Type: "start"})
+	// Send start with timestamp to ensure frontend detects new round
+	log.Printf("Room.startRound: sending start message to %d clients", len(clients))
+	r.broadcastToClients(clients, Message{
+		Type: "start",
+		Payload: map[string]any{
+			"timestamp": time.Now().UnixMilli(),
+		},
+	})
 }
 
 func (r *Room) handleRoundTimeout() {

@@ -40,6 +40,15 @@ export function PvPRPSGame({ user, onClose, onResult }) {
     }
   }, [result])
 
+  // Reset state when new round starts (gameState changes or status becomes 'playing')
+  useEffect(() => {
+    if (status === 'playing' && gameState) {
+      // New round started - reset selection
+      setSelectedMove(null)
+      setWaiting(false)
+    }
+  }, [gameState, status])
+
   const handleMove = (move) => {
     setSelectedMove(move)
     setWaiting(true)
