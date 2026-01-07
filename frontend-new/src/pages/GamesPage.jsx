@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Card, CardTitle } from '../components/ui'
+import { useState, useCallback } from 'react'
+import { Card, CardTitle, Button } from '../components/ui'
+import { api } from '../api/client'
 import { CoinFlipGame } from '../components/games/CoinFlipGame'
 import { RPSGame } from '../components/games/RPSGame'
 import { MinesGame } from '../components/games/MinesGame'
@@ -38,6 +39,24 @@ export function GamesPage({ user, setUser, addGems }) {
   const [selectedGame, setSelectedGame] = useState(null)
   const [activeGame, setActiveGame] = useState(null)
   const [gameMode, setGameMode] = useState(null) // 'pve' | 'pvp'
+  const [claimingBonus, setClaimingBonus] = useState(false)
+
+  const handleClaimBonus = useCallback(async () => {
+    if (claimingBonus) return
+    setClaimingBonus(true)
+    try {
+      await api.post('/profile/bonus')
+      // Refresh user data
+      const profile = await api.get('/profile')
+      if (setUser) {
+        setUser(prev => ({ ...prev, gems: profile.gems }))
+      }
+    } catch (err) {
+      console.error('Failed to claim bonus:', err)
+    } finally {
+      setClaimingBonus(false)
+    }
+  }, [claimingBonus, setUser])
 
   const handleGameClick = (game) => {
     if (game.hasPvP) {
@@ -68,6 +87,24 @@ export function GamesPage({ user, setUser, addGems }) {
   return (
     <div className="space-y-4 animate-fadeIn">
       <h1 className="text-2xl font-bold">Games</h1>
+
+      {user && user.gems < 100 && (
+        <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-yellow-500/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-yellow-400">Low balance!</p>
+              <p className="text-sm text-white/60">Get 10,000 free gems</p>
+            </div>
+            <Button
+              onClick={handleClaimBonus}
+              disabled={claimingBonus}
+              className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+            >
+              {claimingBonus ? 'Claiming...' : 'Claim Bonus'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-3">
         {games.map((game) => (
