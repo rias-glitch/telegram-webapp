@@ -59,6 +59,7 @@ func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, botToken string) {
 	api.GET("/me", middleware.JWT(), h.Me)
 	api.GET("/profile", middleware.JWT(), h.MyProfile)
 	api.POST("/profile/balance", middleware.JWT(), h.UpdateBalance)
+	api.POST("/profile/bonus", middleware.JWT(), h.ClaimBonus)
 	api.GET("/profile/:id", h.Profile)
 
 	// History

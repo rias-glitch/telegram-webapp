@@ -113,6 +113,24 @@ func (h *Handler) CreateTask(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"task": task})
 }
 
+// ClaimBonus gives 10000 gems to users with 0 balance (one-time)
+func (h *Handler) ClaimBonus(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	_, err := h.DB.Exec(ctx, `UPDATE users SET gems = gems + 10000 WHERE id = $1 AND gems < 100`, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to claim bonus"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "Bonus claimed!"})
+}
+
 func (h *Handler) CompleteTask(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
