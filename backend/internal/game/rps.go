@@ -11,6 +11,7 @@ type RPSGame struct {
 	id      string
 	players [2]int64
 	moves   map[int64]string
+	round   int
 	result  *GameResult
 	mu      sync.RWMutex
 }
@@ -84,33 +85,60 @@ func (g *RPSGame) CheckResult() *GameResult {
 		return nil
 	}
 
+	g.round++
 	p1, p2 := g.players[0], g.players[1]
 	move1, move2 := g.moves[p1], g.moves[p2]
 
-	log.Printf("RPSGame.CheckResult: p1=%d move=%s, p2=%d move=%s", p1, move1, p2, move2)
+	log.Printf("RPSGame.CheckResult: round=%d p1=%d move=%s, p2=%d move=%s", g.round, p1, move1, p2, move2)
 
 	outcome := decide(move1, move2)
 
-	var winner *int64
+	// Someone won
 	if outcome == "win" {
-		winner = &p1
 		log.Printf("RPSGame.CheckResult: p1 wins")
+		g.result = &GameResult{
+			WinnerID: &p1,
+			Reason:   "game_complete",
+			Details: map[string]interface{}{
+				"moves":      g.moves,
+				"yourMove":   move1,
+				"opponentMove": move2,
+			},
+		}
+		return g.result
 	} else if outcome == "lose" {
-		winner = &p2
 		log.Printf("RPSGame.CheckResult: p2 wins")
-	} else {
-		log.Printf("RPSGame.CheckResult: draw")
+		g.result = &GameResult{
+			WinnerID: &p2,
+			Reason:   "game_complete",
+			Details: map[string]interface{}{
+				"moves":      g.moves,
+				"yourMove":   move2,
+				"opponentMove": move1,
+			},
+		}
+		return g.result
 	}
 
-	g.result = &GameResult{
-		WinnerID: winner,
-		Reason:   "game_complete",
-		Details: map[string]interface{}{
-			"moves": g.moves,
-		},
+	// Draw - check if we've reached max rounds
+	log.Printf("RPSGame.CheckResult: round %d was a draw", g.round)
+
+	if g.round >= 5 {
+		log.Printf("RPSGame.CheckResult: 5 rounds of draws, game ends in draw")
+		g.result = &GameResult{
+			WinnerID: nil,
+			Reason:   "draw_after_5_rounds",
+			Details: map[string]interface{}{
+				"rounds": g.round,
+			},
+		}
+		return g.result
 	}
 
-	return g.result
+	// Continue to next round - clear moves
+	log.Printf("RPSGame.CheckResult: continuing to round %d", g.round+1)
+	g.moves = make(map[int64]string)
+	return nil
 }
 
 func (g *RPSGame) IsFinished() bool {
@@ -125,6 +153,7 @@ func (g *RPSGame) SerializeState(playerID int64) interface{} {
 
 	return map[string]interface{}{
 		"type":   "rps",
+		"round":  g.round,
 		"moves":  len(g.moves),
 		"result": g.result,
 	}

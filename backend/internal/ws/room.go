@@ -230,10 +230,14 @@ func (r *Room) checkRound() {
 	log.Printf("Room.checkRound: room=%s players=%v clients=%v", r.ID, r.game.Players(), clientIDs)
 
 	result := r.game.CheckResult()
-	log.Printf("Room.checkRound: room=%s check result=%v", r.ID, result)
+	log.Printf("Room.checkRound: room=%s check result=%v finished=%v", r.ID, result, r.game.IsFinished())
 
 	if result == nil {
-		// Раунд ещё не завершён
+		// Round was a draw or both players had same outcome - continue to next round
+		if !r.game.IsFinished() {
+			log.Printf("Room.checkRound: round draw, starting next round in room %s", r.ID)
+			r.startRound()
+		}
 		return
 	}
 
