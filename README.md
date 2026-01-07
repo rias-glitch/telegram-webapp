@@ -403,55 +403,6 @@ winner_id    BIGINT
 created_at   TIMESTAMP DEFAULT NOW()
 ```
 
----
-
-## Запуск проекта
-
-### Локальная разработка
-
-```bash
-# Backend
-cd backend
-cp .env.example .env
-# Заполнить: DATABASE_URL, JWT_SECRET, BOT_TOKEN, DEV_MODE=true
-go run ./cmd/app
-
-# Frontend
-cd frontend-new
-npm install
-npm run dev
-```
-
-### Production (VPS)
-
-```bash
-# 1. PostgreSQL
-sudo -u postgres createdb telegram_webapp
-psql -d telegram_webapp -f backend/migrations/001_init.sql
-
-# 2. Backend
-cd backend
-go build -o app ./cmd/app
-./app &
-
-# 3. Frontend
-cd frontend-new
-npm run build
-# Файлы в dist/
-
-# 4. Nginx
-# Прокси /api и /ws на localhost:8080
-# Статика из dist/
-```
-
-### Telegram интеграция
-
-1. Создать бота через [@BotFather](https://t.me/BotFather)
-2. Получить BOT_TOKEN
-3. `/mybots` → Bot Settings → Menu Button → URL: `https://your-domain.com`
-
----
-
 ## Идеи для модернизации
 
 ### Новые игры
@@ -630,10 +581,4 @@ npm run build
 
 ---
 
-## Лицензия
 
-MIT License
-
----
-
-*Создано с помощью Claude Code*
