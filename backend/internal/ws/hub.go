@@ -42,6 +42,17 @@ func (h *Hub) AssignClient(c *Client) *Room {
 
 	log.Printf("Hub.AssignClient: user=%d game=%s - assign via waiting slot (rooms=%d)", c.UserID, gameType, len(h.Rooms))
 
+	// Clean up any stale state for this user (e.g., from previous game/reconnect)
+	if oldRoomID, exists := h.UserRoom[c.UserID]; exists {
+		log.Printf("Hub.AssignClient: user=%d has stale room mapping to %s, cleaning up", c.UserID, oldRoomID)
+		delete(h.UserRoom, c.UserID)
+		// If user was in WaitingByGame, clear it
+		if waiting := h.WaitingByGame[gameType]; waiting != nil && waiting.UserID == c.UserID {
+			log.Printf("Hub.AssignClient: clearing stale waiting slot for user=%d", c.UserID)
+			delete(h.WaitingByGame, gameType)
+		}
+	}
+
 	// If there is a waiting client for this game type, attempt to pair
 	waiting := h.WaitingByGame[gameType]
 	if waiting != nil {

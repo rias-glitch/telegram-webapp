@@ -302,11 +302,36 @@ func (r *Room) cleanup() {
 	if r.hub != nil {
 		r.hub.mu.Lock()
 		delete(r.hub.Rooms, r.ID)
+
+		// Clear UserRoom for all players (from game, not just connected clients)
+		players := r.game.Players()
+		for _, uid := range players {
+			if uid != 0 {
+				delete(r.hub.UserRoom, uid)
+			}
+		}
+
+		// Also clear UserRoom for any connected clients (safety)
 		for uid := range r.Clients {
 			delete(r.hub.UserRoom, uid)
 		}
+
+		// Clear WaitingByGame if any player from this room was waiting
+		gameType := r.game.Type()
+		if waiting := r.hub.WaitingByGame[gameType]; waiting != nil {
+			for _, uid := range players {
+				if waiting.UserID == uid {
+					log.Printf("Room.cleanup: clearing stale waiting slot for user=%d game=%s", uid, gameType)
+					delete(r.hub.WaitingByGame, gameType)
+					break
+				}
+			}
+		}
+
 		r.hub.mu.Unlock()
 	}
+
+	log.Printf("Room.cleanup: room=%s cleaned up", r.ID)
 }
 
 func (r *Room) handleRegister(c *Client) {
