@@ -89,7 +89,8 @@ export function useWebSocket(gameType = 'rps') {
 
       case 'round_result':
         // Mines game - round result with move details
-        setRoundResult(payload)
+        // Add unique id to ensure React detects change
+        setRoundResult({ ...payload, _id: Date.now() + Math.random() })
         if (payload.history) {
           setMoveHistory(payload.history)
         }

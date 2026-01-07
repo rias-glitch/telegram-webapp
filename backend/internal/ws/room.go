@@ -686,6 +686,8 @@ func (r *Room) sendMinesRoundResult() {
 	c2 := r.Clients[p2]
 	r.mu.RUnlock()
 
+	nextRound := minesGame.GetRound() + 1
+
 	// Send to player 1 - their move result and history
 	if c1 != nil {
 		myMove := roundResult.PlayerMoves[p1]
@@ -693,12 +695,14 @@ func (r *Room) sendMinesRoundResult() {
 		r.send(p1, Message{
 			Type: "round_result",
 			Payload: map[string]any{
-				"round":        roundResult.Round,
-				"your_move":    myMove.Cell,
-				"your_hit":     myMove.HitMine,
+				"round":         roundResult.Round,
+				"next_round":    nextRound,
+				"your_move":     myMove.Cell,
+				"your_hit":      myMove.HitMine,
 				"opponent_move": oppMove.Cell,
-				"opponent_hit": oppMove.HitMine,
-				"history":      minesGame.GetMoveHistory(p1),
+				"opponent_hit":  oppMove.HitMine,
+				"history":       minesGame.GetMoveHistory(p1),
+				"timestamp":     time.Now().UnixMilli(),
 			},
 		})
 	}
@@ -710,12 +714,14 @@ func (r *Room) sendMinesRoundResult() {
 		r.send(p2, Message{
 			Type: "round_result",
 			Payload: map[string]any{
-				"round":        roundResult.Round,
-				"your_move":    myMove.Cell,
-				"your_hit":     myMove.HitMine,
+				"round":         roundResult.Round,
+				"next_round":    nextRound,
+				"your_move":     myMove.Cell,
+				"your_hit":      myMove.HitMine,
 				"opponent_move": oppMove.Cell,
-				"opponent_hit": oppMove.HitMine,
-				"history":      minesGame.GetMoveHistory(p2),
+				"opponent_hit":  oppMove.HitMine,
+				"history":       minesGame.GetMoveHistory(p2),
+				"timestamp":     time.Now().UnixMilli(),
 			},
 		})
 	}

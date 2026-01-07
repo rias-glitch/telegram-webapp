@@ -59,22 +59,34 @@ export function PvPMinesGame({ user, onClose, onResult }) {
 
   // Handle round result - update opened cells and prepare for next round
   useEffect(() => {
-    if (roundResult) {
+    if (roundResult && roundResult.your_move) {
       const { your_move, your_hit } = roundResult
 
-      // Add to opened cells
-      setOpenedCells(prev => [...prev, { cell: your_move, hitMine: your_hit }])
+      console.log('PvPMinesGame: received round_result', roundResult)
+
+      // Add to opened cells (avoid duplicates)
+      setOpenedCells(prev => {
+        const alreadyExists = prev.some(c => c.cell === your_move)
+        if (alreadyExists) {
+          console.log('PvPMinesGame: cell already opened, skipping', your_move)
+          return prev
+        }
+        return [...prev, { cell: your_move, hitMine: your_hit }]
+      })
 
       // Show animation
       setLastRoundAnimation(your_hit ? 'explode' : 'safe')
       setTimeout(() => setLastRoundAnimation(null), 1500)
 
-      // Update round
-      if (roundResult.round) {
+      // Update round from next_round if available, otherwise increment
+      if (roundResult.next_round) {
+        setRound(roundResult.next_round)
+      } else if (roundResult.round) {
         setRound(roundResult.round + 1)
       }
 
-      // Reset for next round (start message will also do this, but this ensures immediate response)
+      // Reset for next round
+      console.log('PvPMinesGame: resetting for next round')
       setSelectedCell(null)
       setWaitingForOpponent(false)
       startTimer()
