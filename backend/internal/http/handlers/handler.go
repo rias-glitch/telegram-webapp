@@ -23,7 +23,7 @@ func NewHandler(db *pgxpool.Pool, botToken string) *Handler {
 }
 
 // getUserID извлекает user_id из контекста Gin
-func getUserID(c interface{ Get(any) (any, bool) }) (int64, bool) {
+func getUserID(c interface{ Get(string) (any, bool) }) (int64, bool) {
 	uidVal, ok := c.Get("user_id")
 	if !ok {
 		return 0, false
