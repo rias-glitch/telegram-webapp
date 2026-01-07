@@ -57,7 +57,7 @@ export function PvPMinesGame({ user, onClose, onResult }) {
     }
   }, [result])
 
-  // Handle round result - update opened cells
+  // Handle round result - update opened cells and prepare for next round
   useEffect(() => {
     if (roundResult) {
       const { your_move, your_hit } = roundResult
@@ -73,6 +73,11 @@ export function PvPMinesGame({ user, onClose, onResult }) {
       if (roundResult.round) {
         setRound(roundResult.round + 1)
       }
+
+      // Reset for next round (start message will also do this, but this ensures immediate response)
+      setSelectedCell(null)
+      setWaitingForOpponent(false)
+      startTimer()
     }
   }, [roundResult])
 

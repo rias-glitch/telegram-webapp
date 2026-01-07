@@ -251,22 +251,26 @@ func (r *Room) checkRound() {
 			log.Printf("Room.checkRound: round draw, starting next round in room %s", r.ID)
 
 			// For Mines game, send round results to each player
+			// This already triggers state update on frontend
 			r.sendMinesRoundResult()
 
-			// Send draw notification to clients before starting new round
-			r.mu.RLock()
-			clients := make(map[int64]*Client, len(r.Clients))
-			for k, v := range r.Clients {
-				clients[k] = v
-			}
-			r.mu.RUnlock()
+			// Send draw notification only for non-Mines games
+			// For Mines, round_result + start is enough
+			if r.game.Type() != game.TypeMines {
+				r.mu.RLock()
+				clients := make(map[int64]*Client, len(r.Clients))
+				for k, v := range r.Clients {
+					clients[k] = v
+				}
+				r.mu.RUnlock()
 
-			r.broadcastToClients(clients, Message{
-				Type: "round_draw",
-				Payload: map[string]any{
-					"message": "Round ended in draw, starting next round",
-				},
-			})
+				r.broadcastToClients(clients, Message{
+					Type: "round_draw",
+					Payload: map[string]any{
+						"message": "Round ended in draw, starting next round",
+					},
+				})
+			}
 
 			r.startRound()
 		}
