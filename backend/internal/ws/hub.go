@@ -58,66 +58,83 @@ func (h *Hub) AssignClient(c *Client) *Room {
 	if waiting != nil {
 		// don't pair with self
 		if waiting.UserID != c.UserID {
-			// find the waiting client's room id
-			roomID, ok := h.UserRoom[waiting.UserID]
-			if ok {
-				foundRoom, ok2 := h.Rooms[roomID]
-				if ok2 {
-					// ensure waiting client still appears in the room's clients
-					foundRoom.mu.RLock()
-					_, stillThere := foundRoom.Clients[waiting.UserID]
-					foundRoom.mu.RUnlock()
-					if stillThere {
-						log.Printf("Hub.AssignClient: pairing user=%d with waiting user=%d in room=%s game=%s", c.UserID, waiting.UserID, foundRoom.ID, gameType)
+			// Check if waiting client's connection is still alive
+			// by trying a non-blocking send to its Send channel
+			waitingAlive := false
+			select {
+			case waiting.Send <- []byte(`{"type":"ping"}`):
+				waitingAlive = true
+			default:
+				// Channel is full or closed - client may be dead
+				log.Printf("Hub.AssignClient: waiting client=%d Send channel blocked, may be dead", waiting.UserID)
+			}
 
-						// create new game with both players
-						oldPlayers := foundRoom.game.Players()
-						newPlayers := [2]int64{oldPlayers[0], c.UserID}
+			if !waitingAlive {
+				log.Printf("Hub.AssignClient: waiting client=%d appears dead, clearing waiting slot", waiting.UserID)
+				delete(h.WaitingByGame, gameType)
+				// Fall through to create new room
+			} else {
+				// find the waiting client's room id
+				roomID, ok := h.UserRoom[waiting.UserID]
+				if ok {
+					foundRoom, ok2 := h.Rooms[roomID]
+					if ok2 {
+						// ensure waiting client still appears in the room's clients
+						foundRoom.mu.RLock()
+						_, stillThere := foundRoom.Clients[waiting.UserID]
+						foundRoom.mu.RUnlock()
+						if stillThere {
+							log.Printf("Hub.AssignClient: pairing user=%d with waiting user=%d in room=%s game=%s", c.UserID, waiting.UserID, foundRoom.ID, gameType)
 
-						factory := game.NewFactory()
-						g, err := factory.CreateGame(gameType, foundRoom.ID, newPlayers)
-						if err != nil {
-							log.Printf("Hub.AssignClient: failed to create game: %v", err)
+							// create new game with both players
+							oldPlayers := foundRoom.game.Players()
+							newPlayers := [2]int64{oldPlayers[0], c.UserID}
+
+							factory := game.NewFactory()
+							g, err := factory.CreateGame(gameType, foundRoom.ID, newPlayers)
+							if err != nil {
+								log.Printf("Hub.AssignClient: failed to create game: %v", err)
+								h.mu.Unlock()
+								return nil
+							}
+
+							// reserve second client in room before releasing locks
+							foundRoom.mu.Lock()
+							foundRoom.game = g
+							foundRoom.Clients[c.UserID] = c
+							foundRoom.mu.Unlock()
+
+							h.UserRoom[c.UserID] = foundRoom.ID
+							// clear waiting slot for this game type
+							delete(h.WaitingByGame, gameType)
 							h.mu.Unlock()
-							return nil
+
+							log.Printf("Hub.AssignClient: about to register user=%d to room=%s", c.UserID, foundRoom.ID)
+
+							// Non-blocking send to avoid deadlock
+							select {
+							case foundRoom.Register <- c:
+								log.Printf("Hub.AssignClient: registered user=%d to room=%s", c.UserID, foundRoom.ID)
+							case <-time.After(5 * time.Second):
+								log.Printf("Hub.AssignClient: TIMEOUT registering user=%d to room=%s", c.UserID, foundRoom.ID)
+								return nil
+							}
+
+							return foundRoom
 						}
-
-						// reserve second client in room before releasing locks
-						foundRoom.mu.Lock()
-						foundRoom.game = g
-						foundRoom.Clients[c.UserID] = c
-						foundRoom.mu.Unlock()
-
-						h.UserRoom[c.UserID] = foundRoom.ID
-						// clear waiting slot for this game type
+						// if waiting client not present in room, clear stale waiting
+						log.Printf("Hub.AssignClient: found stale waiting client=%d (not in room), clearing waiting slot", waiting.UserID)
 						delete(h.WaitingByGame, gameType)
-						h.mu.Unlock()
-
-						log.Printf("Hub.AssignClient: about to register user=%d to room=%s", c.UserID, foundRoom.ID)
-
-						// Non-blocking send to avoid deadlock
-						select {
-						case foundRoom.Register <- c:
-							log.Printf("Hub.AssignClient: registered user=%d to room=%s", c.UserID, foundRoom.ID)
-						case <-time.After(5 * time.Second):
-							log.Printf("Hub.AssignClient: TIMEOUT registering user=%d to room=%s", c.UserID, foundRoom.ID)
-							return nil
-						}
-
-						return foundRoom
+					} else {
+						// room missing, clear stale waiting
+						log.Printf("Hub.AssignClient: waiting client's room missing (id=%s), clearing waiting slot", roomID)
+						delete(h.WaitingByGame, gameType)
 					}
-					// if waiting client not present in room, clear stale waiting
-					log.Printf("Hub.AssignClient: found stale waiting client=%d (not in room), clearing waiting slot", waiting.UserID)
-					delete(h.WaitingByGame, gameType)
 				} else {
-					// room missing, clear stale waiting
-					log.Printf("Hub.AssignClient: waiting client's room missing (id=%s), clearing waiting slot", roomID)
+					// no mapping for waiting user, clear
+					log.Printf("Hub.AssignClient: waiting user mapped to no room, clearing waiting slot")
 					delete(h.WaitingByGame, gameType)
 				}
-			} else {
-				// no mapping for waiting user, clear
-				log.Printf("Hub.AssignClient: waiting user mapped to no room, clearing waiting slot")
-				delete(h.WaitingByGame, gameType)
 			}
 		} else {
 			// waiting is same user - clear and fallthrough to create room
@@ -186,18 +203,27 @@ func (h *Hub) newRoom(gameType game.GameType, players [2]int64) *Room {
 
 func (h *Hub) OnDisconnect(c *Client) {
 	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	log.Printf("Hub.OnDisconnect: user=%d gameType=%s", c.UserID, c.GameType)
+
 	// clear waiting slot if this was the waiting client for any game type
 	for gt, waiting := range h.WaitingByGame {
 		if waiting != nil && waiting.UserID == c.UserID {
+			log.Printf("Hub.OnDisconnect: clearing waiting slot for user=%d game=%s", c.UserID, gt)
 			delete(h.WaitingByGame, gt)
 		}
 	}
-	defer h.mu.Unlock()
 
 	if roomID, ok := h.UserRoom[c.UserID]; ok {
 		log.Printf("Hub.OnDisconnect: user=%d room=%s", c.UserID, roomID)
 		if room, ok := h.Rooms[roomID]; ok {
-			room.Disconnect <- c
+			// Non-blocking send to avoid deadlock if room.Run() exited
+			select {
+			case room.Disconnect <- c:
+			default:
+				log.Printf("Hub.OnDisconnect: room=%s Disconnect channel full/closed", roomID)
+			}
 		}
 	}
 }
@@ -211,6 +237,57 @@ func (h *Hub) StartCleanup() {
 			h.cleanupStaleRooms()
 		}
 	}()
+
+	// More frequent cleanup for waiting slots (every 30 seconds)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			h.cleanupStaleWaiting()
+		}
+	}()
+}
+
+func (h *Hub) cleanupStaleWaiting() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for gameType, waiting := range h.WaitingByGame {
+		if waiting == nil {
+			continue
+		}
+
+		// Check if waiting client is still alive
+		alive := false
+		select {
+		case waiting.Send <- []byte(`{"type":"ping"}`):
+			alive = true
+		default:
+			// Channel blocked - client may be dead
+		}
+
+		if !alive {
+			log.Printf("Hub.cleanupStaleWaiting: removing stale waiting client=%d game=%s", waiting.UserID, gameType)
+			delete(h.WaitingByGame, gameType)
+
+			// Also cleanup UserRoom mapping
+			if roomID, ok := h.UserRoom[waiting.UserID]; ok {
+				if room, ok := h.Rooms[roomID]; ok {
+					room.mu.Lock()
+					delete(room.Clients, waiting.UserID)
+					clientsLeft := len(room.Clients)
+					room.mu.Unlock()
+
+					if clientsLeft == 0 {
+						delete(h.Rooms, roomID)
+						log.Printf("Hub.cleanupStaleWaiting: removed empty room=%s", roomID)
+					}
+				}
+				delete(h.UserRoom, waiting.UserID)
+			}
+		}
+	}
 }
 
 func (h *Hub) cleanupStaleRooms() {
