@@ -143,59 +143,91 @@ func (r *Room) Run() {
 
 func (r *Room) completeSetup() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Для каждого игрока который не завершил setup - вызываем HandleMove с nil (бот сделает)
 	for _, playerID := range r.game.Players() {
 		if !r.game.IsSetupComplete() {
 			r.game.HandleMove(playerID, nil)
 		}
 	}
+	// Collect clients while holding lock
+	clients := r.getClientsUnlocked()
+	r.mu.Unlock()
 
-	r.broadcast(Message{Type: "setup_complete"})
+	// Send without lock
+	r.broadcastToClients(clients, Message{Type: "setup_complete"})
 }
 
 func (r *Room) startRound() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	// Collect clients while holding lock
+	clients := r.getClientsUnlocked()
 
-	r.broadcast(Message{Type: "start"})
-
-	// Запускаем таймер на ход
+	// Setup timer
 	if r.timer != nil {
 		r.timer.Stop()
 	}
-
 	r.timer = time.AfterFunc(r.game.TurnTimeout(), func() {
 		r.handleRoundTimeout()
 	})
+	r.mu.Unlock()
+
+	// Send without lock to avoid deadlock
+	r.broadcastToClients(clients, Message{Type: "start"})
 }
 
 func (r *Room) handleRoundTimeout() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Для каждого игрока который не сходил - бот делает ход
 	for _, playerID := range r.game.Players() {
-		// Проверяем сходил ли игрок (это зависит от реализации игры)
-		// Для простоты просто вызываем HandleMove с nil
 		r.game.HandleMove(playerID, nil)
 	}
+	isComplete := r.game.IsRoundComplete()
+	r.mu.Unlock()
 
-	if r.game.IsRoundComplete() {
+	if isComplete {
 		r.checkRound()
+	}
+}
+
+// getClientsUnlocked returns a copy of clients map - caller must hold lock
+func (r *Room) getClientsUnlocked() map[int64]*Client {
+	clients := make(map[int64]*Client, len(r.Clients))
+	for k, v := range r.Clients {
+		clients[k] = v
+	}
+	return clients
+}
+
+// broadcastToClients sends message to all clients without taking lock
+func (r *Room) broadcastToClients(clients map[int64]*Client, msg Message) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Room.broadcastToClients: marshal error: %v", err)
+		return
+	}
+
+	for userID, c := range clients {
+		if c == nil {
+			continue
+		}
+		select {
+		case c.Send <- data:
+			log.Printf("Room.broadcastToClients: ✅ sent to user=%d type=%s", userID, msg.Type)
+		case <-time.After(2 * time.Second):
+			log.Printf("Room.broadcastToClients: ❌ timeout sending to user=%d type=%s", userID, msg.Type)
+		}
 	}
 }
 
 func (r *Room) checkRound() {
 	// debug: log players and connected clients
 	r.mu.RLock()
-	clients := make([]int64, 0, len(r.Clients))
+	clientIDs := make([]int64, 0, len(r.Clients))
 	for uid := range r.Clients {
-		clients = append(clients, uid)
+		clientIDs = append(clientIDs, uid)
 	}
 	r.mu.RUnlock()
-	log.Printf("Room.checkRound: room=%s players=%v clients=%v", r.ID, r.game.Players(), clients)
+	log.Printf("Room.checkRound: room=%s players=%v clients=%v", r.ID, r.game.Players(), clientIDs)
 
 	result := r.game.CheckResult()
 	log.Printf("Room.checkRound: room=%s check result=%v", r.ID, result)
@@ -205,7 +237,7 @@ func (r *Room) checkRound() {
 		return
 	}
 
-	// Отправляем результат
+	// Отправляем результат (this function handles its own locking)
 	r.broadcastResult(result)
 
 	if r.game.IsFinished() {
@@ -455,10 +487,11 @@ func (r *Room) HandleMessage(c *Client, raw []byte) {
 
 func (r *Room) broadcastResult(result *game.GameResult) {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	players := r.game.Players()
 	p1, p2 := players[0], players[1]
+	c1 := r.Clients[p1]
+	c2 := r.Clients[p2]
+	r.mu.RUnlock()
 
 	log.Printf("Room.broadcastResult: room=%s winner=%v", r.ID, result.WinnerID)
 
@@ -476,30 +509,47 @@ func (r *Room) broadcastResult(result *game.GameResult) {
 		result2 = "win"
 	}
 
-	log.Printf("Room.broadcastResult: sending results - p1=%s p2=%s", result1, result2)
+	log.Printf("Room.broadcastResult: sending results - p1=%d=%s p2=%d=%s", p1, result1, p2, result2)
 
-	// Отправляем каждому игроку
-	log.Printf("Room.broadcastResult: sending result to p1=%d", p1)
-	r.send(p1, Message{
-		Type: "result",
-		Payload: map[string]any{
-			"you":     result1,
-			"reason":  result.Reason,
-			"details": result.Details,
-		},
-	})
-	log.Printf("Room.broadcastResult: sent to p1=%d, sending to p2=%d", p1, p2)
+	// Send to player 1
+	if c1 != nil {
+		data1, _ := json.Marshal(Message{
+			Type: "result",
+			Payload: map[string]any{
+				"you":     result1,
+				"reason":  result.Reason,
+				"details": result.Details,
+			},
+		})
+		select {
+		case c1.Send <- data1:
+			log.Printf("Room.broadcastResult: ✅ sent result to p1=%d", p1)
+		case <-time.After(2 * time.Second):
+			log.Printf("Room.broadcastResult: ❌ timeout sending result to p1=%d", p1)
+		}
+	} else {
+		log.Printf("Room.broadcastResult: ❌ p1=%d client is nil", p1)
+	}
 
-	log.Printf("Room.broadcastResult: sending result to p2=%d", p2)
-	r.send(p2, Message{
-		Type: "result",
-		Payload: map[string]any{
-			"you":     result2,
-			"reason":  result.Reason,
-			"details": result.Details,
-		},
-	})
-	log.Printf("Room.broadcastResult: sent to p2=%d", p2)
+	// Send to player 2
+	if c2 != nil {
+		data2, _ := json.Marshal(Message{
+			Type: "result",
+			Payload: map[string]any{
+				"you":     result2,
+				"reason":  result.Reason,
+				"details": result.Details,
+			},
+		})
+		select {
+		case c2.Send <- data2:
+			log.Printf("Room.broadcastResult: ✅ sent result to p2=%d", p2)
+		case <-time.After(2 * time.Second):
+			log.Printf("Room.broadcastResult: ❌ timeout sending result to p2=%d", p2)
+		}
+	} else {
+		log.Printf("Room.broadcastResult: ❌ p2=%d client is nil", p2)
+	}
 }
 
 
