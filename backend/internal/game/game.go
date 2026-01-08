@@ -13,6 +13,9 @@ type Game interface {
 	Type() GameType
 	Players() [2]int64
 
+	// SetSecondPlayer updates the second player ID (used when pairing)
+	SetSecondPlayer(playerID int64)
+
 	// Setup phase (optional for some games)
 	SetupTimeout() time.Duration
 	HandleSetup(playerID int64, data interface{}) error

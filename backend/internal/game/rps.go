@@ -36,6 +36,12 @@ func (g *RPSGame) SetupTimeout() time.Duration {
 	return 0 // RPS doesn't have setup phase
 }
 
+func (g *RPSGame) SetSecondPlayer(playerID int64) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.players[1] = playerID
+}
+
 func (g *RPSGame) HandleSetup(playerID int64, data interface{}) error {
 	return nil // no setup needed
 }

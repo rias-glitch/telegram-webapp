@@ -86,21 +86,9 @@ func (h *Hub) AssignClient(c *Client) *Room {
 						if stillThere {
 							log.Printf("Hub.AssignClient: pairing user=%d with waiting user=%d in room=%s game=%s", c.UserID, waiting.UserID, foundRoom.ID, gameType)
 
-							// create new game with both players
-							oldPlayers := foundRoom.game.Players()
-							newPlayers := [2]int64{oldPlayers[0], c.UserID}
-
-							factory := game.NewFactory()
-							g, err := factory.CreateGame(gameType, foundRoom.ID, newPlayers)
-							if err != nil {
-								log.Printf("Hub.AssignClient: failed to create game: %v", err)
-								h.mu.Unlock()
-								return nil
-							}
-
-							// reserve second client in room before releasing locks
+							// Update existing game with second player (preserves setup state for Mines)
 							foundRoom.mu.Lock()
-							foundRoom.game = g
+							foundRoom.game.SetSecondPlayer(c.UserID)
 							foundRoom.Clients[c.UserID] = c
 							foundRoom.mu.Unlock()
 

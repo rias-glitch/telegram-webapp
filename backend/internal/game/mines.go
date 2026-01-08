@@ -56,6 +56,16 @@ func (g *MinesGame) Players() [2]int64 { return g.players }
 func (g *MinesGame) SetupTimeout() time.Duration { return 10 * time.Second }
 func (g *MinesGame) TurnTimeout() time.Duration { return 10 * time.Second }
 
+func (g *MinesGame) SetSecondPlayer(playerID int64) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.players[1] = playerID
+	// Initialize move history for the new player
+	if g.moveHistory[playerID] == nil {
+		g.moveHistory[playerID] = []MoveResult{}
+	}
+}
+
 func (g *MinesGame) IsSetupComplete() bool {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
