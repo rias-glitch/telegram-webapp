@@ -83,6 +83,14 @@ func (r *Room) Run() {
 
 	// Обработка событий
 	for {
+		// Check if game is finished BEFORE blocking on select
+		if r.game.IsFinished() {
+			log.Printf("Room.Run: room=%s game finished, exiting", r.ID)
+			r.saveResult()
+			r.cleanup()
+			return
+		}
+
 		select {
 		case c := <-r.Register:
 			log.Printf("Room.Run: room=%s received Register for user=%d", r.ID, c.UserID)
@@ -124,14 +132,10 @@ func (r *Room) Run() {
 				log.Printf("Room.Run: room=%s terminated after disconnect", r.ID)
 				return
 			}
-		}
 
-		// Если игра закончена - выходим
-		if r.game.IsFinished() {
-			log.Printf("Room.Run: room=%s game finished", r.ID)
-			r.saveResult()
-			r.cleanup()
-			return
+		case <-time.After(100 * time.Millisecond):
+			// Periodic check - allows IsFinished() check at top of loop
+			continue
 		}
 	}
 }
@@ -290,47 +294,54 @@ func (r *Room) checkRound() {
 }
 
 func (r *Room) cleanup() {
+	// Collect data while holding room lock
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	if r.timer != nil {
 		r.timer.Stop()
+		r.timer = nil
 	}
+	players := r.game.Players()
+	gameType := r.game.Type()
+	clientIDs := make([]int64, 0, len(r.Clients))
+	for uid := range r.Clients {
+		clientIDs = append(clientIDs, uid)
+	}
+	hub := r.hub
+	roomID := r.ID
+	r.mu.Unlock()
 
-	// Удаляем себя из Hub
-	if r.hub != nil {
-		r.hub.mu.Lock()
-		delete(r.hub.Rooms, r.ID)
+	// Now update hub WITHOUT holding room lock (prevents deadlock)
+	if hub != nil {
+		hub.mu.Lock()
+		delete(hub.Rooms, roomID)
 
 		// Clear UserRoom for all players (from game, not just connected clients)
-		players := r.game.Players()
 		for _, uid := range players {
 			if uid != 0 {
-				delete(r.hub.UserRoom, uid)
+				delete(hub.UserRoom, uid)
 			}
 		}
 
 		// Also clear UserRoom for any connected clients (safety)
-		for uid := range r.Clients {
-			delete(r.hub.UserRoom, uid)
+		for _, uid := range clientIDs {
+			delete(hub.UserRoom, uid)
 		}
 
 		// Clear WaitingByGame if any player from this room was waiting
-		gameType := r.game.Type()
-		if waiting := r.hub.WaitingByGame[gameType]; waiting != nil {
+		if waiting := hub.WaitingByGame[gameType]; waiting != nil {
 			for _, uid := range players {
 				if waiting.UserID == uid {
 					log.Printf("Room.cleanup: clearing stale waiting slot for user=%d game=%s", uid, gameType)
-					delete(r.hub.WaitingByGame, gameType)
+					delete(hub.WaitingByGame, gameType)
 					break
 				}
 			}
 		}
 
-		r.hub.mu.Unlock()
+		hub.mu.Unlock()
 	}
 
-	log.Printf("Room.cleanup: room=%s cleaned up", r.ID)
+	log.Printf("Room.cleanup: room=%s cleaned up", roomID)
 }
 
 func (r *Room) handleRegister(c *Client) {
