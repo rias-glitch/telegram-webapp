@@ -117,16 +117,11 @@ func (r *Room) Run() {
 
 		case c := <-r.Disconnect:
 			log.Printf("Room.Run: room=%s received Disconnect for user=%d", r.ID, c.UserID)
-			r.handleDisconnect(c)
+			shouldTerminate := r.handleDisconnect(c)
 
-			// Если все отключились - выходим
-			r.mu.RLock()
-			clientsCount := len(r.Clients)
-			r.mu.RUnlock()
-
-			if clientsCount == 0 {
-				log.Printf("Room.Run: room=%s is empty, exiting", r.ID)
-				r.cleanup()
+			// If handleDisconnect returned true, room is already cleaned up
+			if shouldTerminate {
+				log.Printf("Room.Run: room=%s terminated after disconnect", r.ID)
 				return
 			}
 		}
@@ -451,31 +446,59 @@ func (r *Room) handleRegister(c *Client) {
 	}
 }
 
-func (r *Room) handleDisconnect(c *Client) {
+// handleDisconnect handles client disconnection.
+// Returns true if room should be terminated (either empty or winner declared).
+func (r *Room) handleDisconnect(c *Client) bool {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	delete(r.Clients, c.UserID)
 
 	log.Printf("Room.handleDisconnect: room=%s user=%d", r.ID, c.UserID)
 
-	// Если остался 1 игрок - он победил
-	if len(r.Clients) == 1 {
-		for uid := range r.Clients {
-			r.send(uid, Message{
-				Type: "result",
-				Payload: map[string]string{
-					"you":    "win",
-					"reason": "opponent_left",
-				},
-			})
+	// Collect remaining client info while holding lock
+	var remainingUID int64
+	var remainingClient *Client
+	shouldNotifyWinner := len(r.Clients) == 1
+
+	if shouldNotifyWinner {
+		for uid, cl := range r.Clients {
+			remainingUID = uid
+			remainingClient = cl
+			break
+		}
+	}
+
+	clientsLeft := len(r.Clients)
+	r.mu.Unlock()
+
+	// Send win notification without holding lock (avoids deadlock with r.send)
+	if shouldNotifyWinner && remainingClient != nil {
+		data, _ := json.Marshal(Message{
+			Type: "result",
+			Payload: map[string]string{
+				"you":    "win",
+				"reason": "opponent_left",
+			},
+		})
+		select {
+		case remainingClient.Send <- data:
+			log.Printf("Room.handleDisconnect: sent win to user=%d", remainingUID)
+		case <-time.After(2 * time.Second):
+			log.Printf("Room.handleDisconnect: timeout sending win to user=%d", remainingUID)
 		}
 
-		// Завершаем игру (устанавливаем результат принудительно)
-		// Это можно сделать через reflection или добавить метод ForceFinish в интерфейс
-		// Для простоты просто cleanup
+		// Cleanup without holding room lock (cleanup takes its own lock)
 		r.cleanup()
+		return true // Room should terminate
 	}
+
+	// If room is empty, also cleanup
+	if clientsLeft == 0 {
+		r.cleanup()
+		return true // Room should terminate
+	}
+
+	return false // Room continues (still has 2 players somehow, or waiting for second)
 }
 
 func (r *Room) HandleMessage(c *Client, raw []byte) {
