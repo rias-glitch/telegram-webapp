@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '../ui/Overlay'
 import { Button, Input } from '../ui'
 import { playWheel, getWheelInfo } from '../../api/games'
 
 const BET_PRESETS = [10, 50, 100, 500]
 
-// Default segments matching backend
+// Default segments matching backend order
 const DEFAULT_SEGMENTS = [
   { id: 1, multiplier: 0.0, color: '#4a4a4a', label: '0x' },
   { id: 2, multiplier: 0.5, color: '#e74c3c', label: '0.5x' },
@@ -23,21 +23,18 @@ export function WheelGame({ user, onClose, onResult }) {
   const [spinning, setSpinning] = useState(false)
   const [result, setResult] = useState(null)
   const [segments, setSegments] = useState(DEFAULT_SEGMENTS)
-  const [offset, setOffset] = useState(0)
-  const stripRef = useRef(null)
+  const [displayIndex, setDisplayIndex] = useState(0)
 
   useEffect(() => {
     getWheelInfo().then(data => {
-      if (data.segments) setSegments(data.segments)
+      if (data.segments && data.segments.length > 0) {
+        setSegments(data.segments)
+      }
     }).catch(() => {})
   }, [])
 
-  // Create extended strip for smooth looping (repeat segments multiple times)
-  const extendedSegments = [...segments, ...segments, ...segments, ...segments, ...segments]
-  const segmentWidth = 80 // px per segment
-
   const handleSpin = async () => {
-    if (bet <= 0 || bet > (user?.gems || 0)) return
+    if (bet <= 0 || bet > (user?.gems || 0) || spinning) return
 
     try {
       setLoading(true)
@@ -46,24 +43,36 @@ export function WheelGame({ user, onClose, onResult }) {
 
       const response = await playWheel(bet)
 
-      // Calculate target position
-      // Find winning segment index and add random rotations
+      // Find winning segment index
       const winIndex = segments.findIndex(s => s.id === response.segment_id)
-      const rotations = 3 // Full rotations before stopping
-      const totalSegments = segments.length
-      const targetPosition = (rotations * totalSegments + winIndex) * segmentWidth
+      const finalIndex = winIndex >= 0 ? winIndex : 0
 
-      // Add some randomness within the segment
-      const randomOffset = Math.random() * (segmentWidth * 0.6) - (segmentWidth * 0.3)
+      // Animate through segments
+      const totalSpins = 3 * segments.length + finalIndex // 3 full rotations + final position
+      let currentSpin = 0
 
-      setOffset(targetPosition + randomOffset)
+      const spinInterval = setInterval(() => {
+        currentSpin++
+        setDisplayIndex(currentSpin % segments.length)
 
-      // Show result after animation
+        if (currentSpin >= totalSpins) {
+          clearInterval(spinInterval)
+          setDisplayIndex(finalIndex)
+          setSpinning(false)
+          setResult(response)
+          onResult(response.gems)
+        }
+      }, 100 - Math.min(currentSpin * 2, 70)) // Speed up then slow down
+
+      // Fallback timeout
       setTimeout(() => {
+        clearInterval(spinInterval)
+        setDisplayIndex(finalIndex)
         setSpinning(false)
         setResult(response)
         onResult(response.gems)
-      }, 3000)
+      }, 4000)
+
     } catch (err) {
       setSpinning(false)
       setResult({ error: err.message })
@@ -74,62 +83,44 @@ export function WheelGame({ user, onClose, onResult }) {
 
   const playAgain = () => {
     setResult(null)
-    setOffset(0)
+    setDisplayIndex(0)
   }
+
+  const currentSegment = segments[displayIndex] || segments[0]
 
   return (
     <Modal isOpen={true} onClose={onClose} title="Wheel of Fortune">
       <div className="space-y-6">
-        {/* Slot machine style display */}
+        {/* Slot machine display */}
         <div className="relative">
           {/* Frame */}
-          <div className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-2xl p-2 shadow-lg">
-            <div className="bg-dark rounded-xl p-1 relative overflow-hidden">
-              {/* Pointer/Indicator */}
-              <div className="absolute left-1/2 top-0 -translate-x-1/2 z-20 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[16px] border-l-transparent border-r-transparent border-t-yellow-400" />
-              <div className="absolute left-1/2 bottom-0 -translate-x-1/2 z-20 w-0 h-0 border-l-[12px] border-r-[12px] border-b-[16px] border-l-transparent border-r-transparent border-b-yellow-400" />
-
-              {/* Gradient overlays for depth effect */}
-              <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-dark to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-dark to-transparent z-10 pointer-events-none" />
-
-              {/* Strip container */}
-              <div className="h-24 overflow-hidden relative">
-                <div
-                  ref={stripRef}
-                  className="flex absolute"
-                  style={{
-                    transform: `translateX(calc(50% - ${offset}px - ${segmentWidth / 2}px))`,
-                    transition: spinning ? 'transform 3s cubic-bezier(0.15, 0.85, 0.3, 1)' : 'none',
-                  }}
-                >
-                  {extendedSegments.map((seg, i) => (
-                    <div
-                      key={i}
-                      className="flex-shrink-0 h-24 flex items-center justify-center font-bold text-xl border-x border-white/20"
-                      style={{
-                        width: segmentWidth,
-                        backgroundColor: seg.color,
-                        textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                      }}
-                    >
-                      {seg.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
+          <div className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-2xl p-3 shadow-lg">
+            {/* Main display */}
+            <div
+              className="h-32 rounded-xl flex items-center justify-center text-5xl font-bold transition-all duration-100"
+              style={{
+                backgroundColor: currentSegment.color,
+                textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+              }}
+            >
+              {currentSegment.label}
             </div>
           </div>
 
           {/* Decorative lights */}
-          <div className="flex justify-around mt-2">
-            {[...Array(7)].map((_, i) => (
+          <div className="flex justify-around mt-3">
+            {[...Array(8)].map((_, i) => (
               <div
                 key={i}
-                className={`w-3 h-3 rounded-full ${spinning ? 'animate-pulse' : ''}`}
+                className={`w-3 h-3 rounded-full transition-all`}
                 style={{
-                  backgroundColor: spinning ? ['#ef4444', '#f59e0b', '#10b981'][i % 3] : '#666',
-                  boxShadow: spinning ? `0 0 8px ${['#ef4444', '#f59e0b', '#10b981'][i % 3]}` : 'none',
+                  backgroundColor: spinning
+                    ? ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'][i % 4]
+                    : '#444',
+                  boxShadow: spinning
+                    ? `0 0 10px ${['#ef4444', '#f59e0b', '#10b981', '#3b82f6'][i % 4]}`
+                    : 'none',
+                  animation: spinning ? `pulse ${0.3 + i * 0.1}s infinite` : 'none',
                 }}
               />
             ))}
@@ -138,15 +129,18 @@ export function WheelGame({ user, onClose, onResult }) {
 
         {/* Result */}
         {result && !result.error && (
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-2 animate-fadeIn">
             <div
               className="text-4xl font-bold"
-              style={{ color: result.color }}
+              style={{ color: segments.find(s => s.id === result.segment_id)?.color || '#fff' }}
             >
               {result.label}
             </div>
             <div className={`text-2xl font-bold ${result.multiplier >= 1 ? 'text-success' : 'text-danger'}`}>
-              {result.win_amount > 0 ? '+' : ''}{result.win_amount - bet} gems
+              {result.win_amount > bet ? '+' : ''}{result.win_amount - bet} gems
+            </div>
+            <div className="text-white/60">
+              {result.multiplier}x multiplier
             </div>
           </div>
         )}
@@ -155,7 +149,7 @@ export function WheelGame({ user, onClose, onResult }) {
           <div className="text-center text-danger">{result.error}</div>
         )}
 
-        {/* Multipliers preview */}
+        {/* Multipliers grid */}
         {!spinning && !result && (
           <div className="grid grid-cols-4 gap-2">
             {segments.map((seg) => (

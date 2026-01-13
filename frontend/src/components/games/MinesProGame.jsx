@@ -20,9 +20,17 @@ export function MinesProGame({ user, onClose, onResult }) {
   // Check for active game on mount
   useEffect(() => {
     getMinesProState().then(state => {
-      if (state.active) {
+      if (state.active && state.status === 'active') {
         setGameState(state)
         setRevealedCells(state.revealed || [])
+        setGameOver(false)
+      } else if (state.active && state.status !== 'active') {
+        // Game finished but not cleared - show result
+        setGameState(state)
+        setRevealedCells(state.revealed || [])
+        setMines(state.mines || [])
+        setGameOver(true)
+        setWon(state.status === 'cashed_out')
       }
     }).catch(() => {})
   }, [])

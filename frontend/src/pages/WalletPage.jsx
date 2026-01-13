@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react'
 import { Card, CardTitle, Button, Input } from '../components/ui'
 import * as tonApi from '../api/ton'
 
@@ -11,6 +12,9 @@ const STATUS_COLORS = {
 }
 
 export function WalletPage({ user }) {
+  const [tonConnectUI] = useTonConnectUI()
+  const tonWallet = useTonWallet()
+
   const [wallet, setWallet] = useState(null)
   const [config, setConfig] = useState(null)
   const [deposits, setDeposits] = useState([])
@@ -18,6 +22,7 @@ export function WalletPage({ user }) {
   const [depositInfo, setDepositInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('deposit')
+  const [connecting, setConnecting] = useState(false)
 
   // Withdraw form
   const [withdrawAmount, setWithdrawAmount] = useState(10)
@@ -52,6 +57,34 @@ export function WalletPage({ user }) {
     fetchData()
   }, [fetchData])
 
+  // Sync TON Connect wallet with backend
+  useEffect(() => {
+    const syncWallet = async () => {
+      if (tonWallet && !wallet && !connecting) {
+        setConnecting(true)
+        try {
+          // Get proof from TON Connect
+          const proof = tonConnectUI.wallet?.connectItems?.tonProof
+
+          await tonApi.connectWallet(
+            {
+              address: tonWallet.account.address,
+              chain: tonWallet.account.chain,
+              publicKey: tonWallet.account.publicKey,
+            },
+            proof || { timestamp: Date.now(), domain: { value: window.location.host } }
+          )
+          await fetchData()
+        } catch (err) {
+          console.error('Failed to sync wallet:', err)
+        } finally {
+          setConnecting(false)
+        }
+      }
+    }
+    syncWallet()
+  }, [tonWallet, wallet, tonConnectUI, connecting, fetchData])
+
   // Calculate withdraw estimate when amount changes
   useEffect(() => {
     if (withdrawAmount >= 10) {
@@ -62,6 +95,25 @@ export function WalletPage({ user }) {
       setWithdrawEstimate(null)
     }
   }, [withdrawAmount])
+
+  const handleConnect = async () => {
+    try {
+      await tonConnectUI.openModal()
+    } catch (err) {
+      console.error('Failed to open TON Connect:', err)
+    }
+  }
+
+  const handleDisconnect = async () => {
+    try {
+      await tonConnectUI.disconnect()
+      await tonApi.disconnectWallet()
+      setWallet(null)
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to disconnect:', err)
+    }
+  }
 
   const handleWithdraw = async () => {
     if (!withdrawEstimate || withdrawing) return
@@ -110,6 +162,8 @@ export function WalletPage({ user }) {
     )
   }
 
+  const isConnected = wallet || tonWallet
+
   return (
     <div className="space-y-4 animate-fadeIn">
       <h1 className="text-2xl font-bold">Wallet</h1>
@@ -131,24 +185,21 @@ export function WalletPage({ user }) {
       </Card>
 
       {/* Wallet status */}
-      {wallet ? (
+      {isConnected ? (
         <Card>
           <div className="flex items-center justify-between">
             <div>
               <div className="text-white/60 text-sm">Connected Wallet</div>
-              <div className="font-mono text-sm">{shortenAddress(wallet.address)}</div>
+              <div className="font-mono text-sm">
+                {shortenAddress(wallet?.address || tonWallet?.account?.address)}
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              {wallet.is_verified && (
-                <span className="text-success text-sm">Verified</span>
-              )}
+              <span className="text-success text-sm">Connected</span>
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={async () => {
-                  await tonApi.disconnectWallet()
-                  setWallet(null)
-                }}
+                onClick={handleDisconnect}
               >
                 Disconnect
               </Button>
@@ -159,17 +210,17 @@ export function WalletPage({ user }) {
         <Card className="text-center py-6">
           <div className="text-4xl mb-3">🔗</div>
           <p className="text-white/60 mb-4">Connect your TON wallet to deposit and withdraw</p>
-          <Button className="mx-auto">
-            Connect Wallet
+          <Button onClick={handleConnect} className="mx-auto">
+            {connecting ? 'Connecting...' : 'Connect Wallet'}
           </Button>
           <p className="text-xs text-white/40 mt-3">
-            Use TON Keeper, Tonhub, or any TON Connect compatible wallet
+            Tonkeeper, Tonhub, OpenMask, MyTonWallet
           </p>
         </Card>
       )}
 
       {/* Tabs */}
-      {wallet && (
+      {isConnected && (
         <>
           <div className="flex gap-2">
             {['deposit', 'withdraw', 'history'].map((tab) => (
@@ -208,11 +259,11 @@ export function WalletPage({ user }) {
 
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3">
                   <div className="flex items-start gap-2">
-                    <span className="text-yellow-400">⚠️</span>
+                    <span className="text-yellow-400">!</span>
                     <div className="text-sm">
                       <p className="text-yellow-400 font-medium">Important!</p>
                       <p className="text-white/60">
-                        Include this memo in your transaction: <span className="font-mono text-white">{depositInfo.memo}</span>
+                        Include this memo: <span className="font-mono text-white">{depositInfo.memo}</span>
                       </p>
                     </div>
                   </div>
@@ -224,7 +275,7 @@ export function WalletPage({ user }) {
                     <div className="font-bold">{depositInfo.min_amount_ton} TON</div>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3">
-                    <div className="text-white/60">Exchange rate</div>
+                    <div className="text-white/60">Rate</div>
                     <div className="font-bold">1 TON = {depositInfo.exchange_rate} coins</div>
                   </div>
                 </div>
