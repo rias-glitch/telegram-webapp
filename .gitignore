@@ -26,4 +26,4 @@ Thumbs.db
 
 # Vite cache
 .vite/
-frontend-new/node_modules/.vite/
+frontend/node_modules/.vite/

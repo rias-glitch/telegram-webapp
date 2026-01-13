@@ -132,6 +132,7 @@ export function MinesProGame({ user, onClose, onResult }) {
               {Array.from({ length: BOARD_SIZE }).map((_, i) => {
                 const isRevealed = revealedCells.includes(i)
                 const isMine = mines.includes(i)
+                const isGem = gameOver && !isMine
                 const isClickable = isActive && !isRevealed
 
                 return (
@@ -146,15 +147,22 @@ export function MinesProGame({ user, onClose, onResult }) {
                         ? isMine
                           ? 'bg-danger scale-95'
                           : 'bg-success scale-95'
-                        : isMine && gameOver
-                          ? 'bg-danger/50'
+                        : gameOver
+                          ? isMine
+                            ? 'bg-danger/50'
+                            : 'bg-success/30'
                           : isClickable
                             ? 'bg-white/10 hover:bg-white/20 hover:scale-105 cursor-pointer'
                             : 'bg-white/5'
                       }
                     `}
                   >
-                    {isRevealed ? (isMine ? '💣' : '💎') : (isMine && gameOver ? '💣' : '')}
+                    {isRevealed
+                      ? (isMine ? '💣' : '💎')
+                      : gameOver
+                        ? (isMine ? '💣' : '💎')
+                        : ''
+                    }
                   </button>
                 )
               })}
@@ -190,11 +198,17 @@ export function MinesProGame({ user, onClose, onResult }) {
                 <>
                   <Button
                     variant="secondary"
-                    onClick={handleCashout}
-                    disabled={loading || revealedCells.length === 0}
+                    onClick={onClose}
                     className="flex-1"
                   >
-                    Cash Out ({gameState.potential_win})
+                    Exit
+                  </Button>
+                  <Button
+                    onClick={handleCashout}
+                    disabled={loading || revealedCells.length === 0}
+                    className="flex-1 bg-success hover:bg-success/80"
+                  >
+                    Cash Out 💎{gameState.potential_win}
                   </Button>
                 </>
               )}
