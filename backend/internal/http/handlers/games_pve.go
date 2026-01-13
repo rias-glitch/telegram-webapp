@@ -312,7 +312,7 @@ type MinesProStartRequest struct {
 
 // MinesProRevealRequest represents the reveal cell request
 type MinesProRevealRequest struct {
-	Cell int `json:"cell" binding:"required,min=0,max=24"`
+	Cell *int `json:"cell" binding:"required,min=0,max=24"`
 }
 
 // MinesProStart starts a new Mines Pro game
@@ -354,7 +354,7 @@ func (h *Handler) MinesProReveal(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	hitMine, g, err := h.MinesProService.RevealCell(ctx, userID, req.Cell)
+	hitMine, g, err := h.MinesProService.RevealCell(ctx, userID, *req.Cell)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
