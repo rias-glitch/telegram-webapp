@@ -7,7 +7,8 @@ frontend-new/node_modules/
 backend/.env
 
 # Build outputs
-frontend/
+frontend/dist/
+frontend/node_modules/
 backend/app.exe
 backend/app.log
 *.exe

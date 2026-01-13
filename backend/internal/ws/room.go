@@ -11,6 +11,11 @@ import (
 	"telegram_webapp/internal/game"
 	"telegram_webapp/internal/repository"
 )
+
+const (
+	// Payout multiplier for winner (2x bet = both players' bets)
+	winnerPayoutMultiplier = 2
+)
 const (
 	StateWaiting  = "waiting"
 	StatePlaying  = "playing"
@@ -29,10 +34,16 @@ type Room struct {
 	timer      *time.Timer
 	createdAt  time.Time
 
-	game     game.Game  // ← игра через интерфейс
-	GameRepo *repository.GameRepository
+	game            game.Game // ← игра через интерфейс
+	GameRepo        *repository.GameRepository
 	GameHistoryRepo *repository.GameHistoryRepository
-	hub      *Hub       // ← ссылка на Hub для cleanup
+	hub             *Hub // ← ссылка на Hub для cleanup
+
+	// Betting info
+	BetAmount int64
+	Currency  string // "gems" or "coins"
+	UserRepo  *repository.UserRepository
+	betPaid   bool // track if bet has been paid out
 }
 func NewRoom(id string, g game.Game, hub *Hub) *Room {
 	return &Room{
@@ -464,12 +475,16 @@ func (r *Room) handleDisconnect(c *Client) bool {
 
 	delete(r.Clients, c.UserID)
 
-	log.Printf("Room.handleDisconnect: room=%s user=%d", r.ID, c.UserID)
+	log.Printf("Room.handleDisconnect: room=%s user=%d bet=%d currency=%s", r.ID, c.UserID, r.BetAmount, r.Currency)
 
 	// Collect remaining client info while holding lock
 	var remainingUID int64
 	var remainingClient *Client
 	shouldNotifyWinner := len(r.Clients) == 1
+
+	// Check if game had 2 players (second player joined)
+	players := r.game.Players()
+	hadTwoPlayers := players[1] != 0
 
 	if shouldNotifyWinner {
 		for uid, cl := range r.Clients {
@@ -480,15 +495,37 @@ func (r *Room) handleDisconnect(c *Client) bool {
 	}
 
 	clientsLeft := len(r.Clients)
+
+	// Handle bet payouts
+	shouldPayWinner := r.BetAmount > 0 && !r.betPaid && hadTwoPlayers && shouldNotifyWinner
+	shouldRefundDisconnecting := r.BetAmount > 0 && !r.betPaid && !hadTwoPlayers // Game never started (waiting for opponent)
+	if shouldPayWinner || shouldRefundDisconnecting {
+		r.betPaid = true
+	}
 	r.mu.Unlock()
+
+	// Handle bet payouts outside of lock
+	if shouldPayWinner && remainingClient != nil {
+		// Winner gets both bets (opponent forfeited)
+		log.Printf("Room.handleDisconnect: opponent left, paying winner=%d pot=%d %s",
+			remainingUID, r.BetAmount*2, r.Currency)
+		r.payoutWinner(&remainingUID, remainingUID, c.UserID)
+	} else if shouldRefundDisconnecting {
+		// Game never started, refund disconnecting player
+		log.Printf("Room.handleDisconnect: game never started, refunding user=%d", c.UserID)
+		r.refundBet(c.UserID)
+	}
 
 	// Send win notification without holding lock (avoids deadlock with r.send)
 	if shouldNotifyWinner && remainingClient != nil {
+		winAmount := r.BetAmount * 2
 		data, _ := json.Marshal(Message{
 			Type: "result",
-			Payload: map[string]string{
-				"you":    "win",
-				"reason": "opponent_left",
+			Payload: map[string]any{
+				"you":        "win",
+				"reason":     "opponent_left",
+				"win_amount": winAmount,
+				"currency":   r.Currency,
 			},
 		})
 		select {
@@ -772,7 +809,33 @@ func (r *Room) saveResult() {
 	players := r.game.Players()
 	p1, p2 := players[0], players[1]
 
-	log.Printf("Room.saveResult: room=%s storing game", r.ID)
+	log.Printf("Room.saveResult: room=%s storing game bet=%d currency=%s", r.ID, r.BetAmount, r.Currency)
+
+	// Pay out the winner (if there's a bet and it hasn't been paid yet)
+	r.mu.Lock()
+	shouldPay := r.BetAmount > 0 && !r.betPaid
+	if shouldPay {
+		r.betPaid = true
+	}
+	r.mu.Unlock()
+
+	if shouldPay {
+		r.payoutWinner(result.WinnerID, p1, p2)
+	}
+
+	// Calculate win amounts for history
+	var winAmount1, winAmount2 int64
+	if result.WinnerID != nil {
+		if *result.WinnerID == p1 {
+			winAmount1 = r.BetAmount * winnerPayoutMultiplier
+		} else {
+			winAmount2 = r.BetAmount * winnerPayoutMultiplier
+		}
+	} else {
+		// Draw - both get refunded (handled in payoutWinner)
+		winAmount1 = r.BetAmount
+		winAmount2 = r.BetAmount
+	}
 
 	// Save to old games table (for backwards compatibility)
 	if r.GameRepo != nil {
@@ -799,7 +862,6 @@ func (r *Room) saveResult() {
 
 		// Determine results for each player
 		var result1, result2 domain.GameResult
-		var winAmount1, winAmount2 int64
 
 		if result.WinnerID == nil {
 			result1 = domain.GameResultDraw
@@ -812,6 +874,8 @@ func (r *Room) saveResult() {
 			result2 = domain.GameResultWin
 		}
 
+		currency := domain.Currency(r.Currency)
+
 		// Save for player 1
 		gh1 := &domain.GameHistory{
 			UserID:     p1,
@@ -820,8 +884,9 @@ func (r *Room) saveResult() {
 			OpponentID: &p2,
 			RoomID:     &r.ID,
 			Result:     result1,
-			BetAmount:  0,
+			BetAmount:  r.BetAmount,
 			WinAmount:  winAmount1,
+			Currency:   currency,
 			Details:    details,
 		}
 		go func() {
@@ -839,8 +904,9 @@ func (r *Room) saveResult() {
 			OpponentID: &p1,
 			RoomID:     &r.ID,
 			Result:     result2,
-			BetAmount:  0,
+			BetAmount:  r.BetAmount,
 			WinAmount:  winAmount2,
+			Currency:   currency,
 			Details:    details,
 		}
 		go func() {
@@ -848,5 +914,71 @@ func (r *Room) saveResult() {
 				log.Printf("Room.saveResult: game_history p2 failed: %v", err)
 			}
 		}()
+	}
+}
+
+// payoutWinner pays out the bet to the winner, or refunds both on draw
+func (r *Room) payoutWinner(winnerID *int64, p1, p2 int64) {
+	if r.UserRepo == nil || r.BetAmount == 0 {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	totalPot := r.BetAmount * 2 // Both players bet the same amount
+
+	if winnerID == nil {
+		// Draw - refund both players
+		log.Printf("Room.payoutWinner: draw in room=%s, refunding both players %d %s", r.ID, r.BetAmount, r.Currency)
+		if r.Currency == string(domain.CurrencyCoins) {
+			if _, err := r.UserRepo.UpdateCoins(ctx, p1, r.BetAmount); err != nil {
+				log.Printf("Room.payoutWinner: failed to refund p1: %v", err)
+			}
+			if _, err := r.UserRepo.UpdateCoins(ctx, p2, r.BetAmount); err != nil {
+				log.Printf("Room.payoutWinner: failed to refund p2: %v", err)
+			}
+		} else {
+			if _, err := r.UserRepo.UpdateGems(ctx, p1, r.BetAmount); err != nil {
+				log.Printf("Room.payoutWinner: failed to refund p1: %v", err)
+			}
+			if _, err := r.UserRepo.UpdateGems(ctx, p2, r.BetAmount); err != nil {
+				log.Printf("Room.payoutWinner: failed to refund p2: %v", err)
+			}
+		}
+	} else {
+		// Winner gets the entire pot (2x bet)
+		log.Printf("Room.payoutWinner: winner=%d in room=%s gets %d %s", *winnerID, r.ID, totalPot, r.Currency)
+		if r.Currency == string(domain.CurrencyCoins) {
+			if _, err := r.UserRepo.UpdateCoins(ctx, *winnerID, totalPot); err != nil {
+				log.Printf("Room.payoutWinner: failed to pay winner: %v", err)
+			}
+		} else {
+			if _, err := r.UserRepo.UpdateGems(ctx, *winnerID, totalPot); err != nil {
+				log.Printf("Room.payoutWinner: failed to pay winner: %v", err)
+			}
+		}
+	}
+}
+
+// refundBet refunds a player's bet (used when game is cancelled or player disconnects early)
+func (r *Room) refundBet(userID int64) {
+	if r.UserRepo == nil || r.BetAmount == 0 {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	log.Printf("Room.refundBet: refunding %d %s to user=%d", r.BetAmount, r.Currency, userID)
+
+	if r.Currency == string(domain.CurrencyCoins) {
+		if _, err := r.UserRepo.UpdateCoins(ctx, userID, r.BetAmount); err != nil {
+			log.Printf("Room.refundBet: failed to refund coins: %v", err)
+		}
+	} else {
+		if _, err := r.UserRepo.UpdateGems(ctx, userID, r.BetAmount); err != nil {
+			log.Printf("Room.refundBet: failed to refund gems: %v", err)
+		}
 	}
 }

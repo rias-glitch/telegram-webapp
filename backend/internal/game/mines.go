@@ -255,7 +255,6 @@ func (g *MinesGame) IsFinished() bool {
 	return g.result != nil
 }
 
-// ← Добавь этот метод
 func (g *MinesGame) SerializeState(playerID int64) interface{} {
 	g.mu.RLock()
 	defer g.mu.RUnlock()

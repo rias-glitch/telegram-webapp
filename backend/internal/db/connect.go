@@ -2,7 +2,8 @@ package db
 
 import (
 	"context"
-	"log"
+
+	"telegram_webapp/internal/logger"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -10,15 +11,13 @@ import (
 func Connect(dsn string) *pgxpool.Pool {
 	db, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal("failed to create database pool", "error", err)
 	}
 
 	if err := db.Ping(context.Background()); err != nil {
-		log.Fatal(err)
+		logger.Fatal("failed to ping database", "error", err)
 	}
 
-	log.Println("database connected")
+	logger.Info("database connected")
 	return db
 }
-
-

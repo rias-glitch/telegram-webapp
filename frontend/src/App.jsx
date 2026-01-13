@@ -6,6 +6,7 @@ import { GamesPage } from './pages/GamesPage'
 import { CasesPage } from './pages/CasesPage'
 import { TopPage } from './pages/TopPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { WalletPage } from './pages/WalletPage'
 
 function App() {
   const { user, loading, error, setUser } = useAuth()
@@ -72,6 +73,10 @@ function App() {
               fetchProfile={fetchProfile}
             />
           }
+        />
+        <Route
+          path="/wallet"
+          element={<WalletPage user={user} />}
         />
       </Routes>
     </Layout>

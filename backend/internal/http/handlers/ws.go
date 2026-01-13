@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"telegram_webapp/internal/service"
 	"telegram_webapp/internal/ws"
@@ -33,6 +34,18 @@ func (h *Handler) WS(hub *ws.Hub) gin.HandlerFunc {
 			gameType = "rps"
 		}
 
+		// Get bet amount and currency from query
+		var betAmount int64
+		if betStr := c.Query("bet"); betStr != "" {
+			if parsed, err := strconv.ParseInt(betStr, 10, 64); err == nil {
+				betAmount = parsed
+			}
+		}
+		currency := c.Query("currency")
+		if currency == "" {
+			currency = "gems" // default currency
+		}
+
 		allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
 		upgrader := websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
@@ -50,8 +63,8 @@ func (h *Handler) WS(hub *ws.Hub) gin.HandlerFunc {
 			return
 		}
 
-		// Create client with game type
-		client := ws.NewClient(userID, conn, hub, gameType)
+		// Create client with game type, bet amount and currency
+		client := ws.NewClient(userID, conn, hub, gameType, betAmount, currency)
 
 		// Start client (matchmaking, room, read/write)
 		go client.Run()

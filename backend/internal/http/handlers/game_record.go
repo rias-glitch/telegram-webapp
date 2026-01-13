@@ -24,8 +24,8 @@ func (h *Handler) RecordGameResult(userID int64, gameType domain.GameType, mode 
 	}
 	_ = h.GameHistoryRepo.Create(ctx, gh)
 
-	// Обновляем прогресс квестов
-	h.updateQuestsAfterGame(userID, string(gameType), string(result))
+	// Обновляем прогресс квестов с тем же контекстом
+	h.updateQuestsAfterGameWithCtx(ctx, userID, string(gameType), string(result))
 }
 
 // RecordPVPGameResult записывает результат PvP игры для обоих игроков
@@ -87,7 +87,7 @@ func (h *Handler) RecordPVPGameResult(playerA, playerB int64, gameType domain.Ga
 	}
 	_ = h.GameHistoryRepo.Create(ctx, ghB)
 
-	// Обновляем квесты для обоих
-	h.updateQuestsAfterGame(playerA, string(gameType), string(resultA))
-	h.updateQuestsAfterGame(playerB, string(gameType), string(resultB))
+	// Обновляем квесты для обоих с тем же контекстом
+	h.updateQuestsAfterGameWithCtx(ctx, playerA, string(gameType), string(resultA))
+	h.updateQuestsAfterGameWithCtx(ctx, playerB, string(gameType), string(resultB))
 }

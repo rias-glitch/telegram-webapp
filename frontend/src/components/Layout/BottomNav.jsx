@@ -2,8 +2,8 @@ import { NavLink } from 'react-router-dom'
 
 const navItems = [
   { path: '/', icon: '🎮', label: 'Игры' },
+  { path: '/wallet', icon: '💰', label: 'Кошелёк' },
   { path: '/top', icon: '🏆', label: 'Топ' },
-  { path: '/cases', icon: '🎁', label: 'Кейсы' },
   { path: '/profile', icon: '👤', label: 'Профиль' },
 ]
 

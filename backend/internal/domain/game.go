@@ -8,8 +8,11 @@ type GameType string
 const (
 	GameTypeRPS      GameType = "rps"
 	GameTypeMines    GameType = "mines"
+	GameTypeMinesPro GameType = "mines_pro"
 	GameTypeCoinflip GameType = "coinflip"
 	GameTypeCase     GameType = "case"
+	GameTypeDice     GameType = "dice"
+	GameTypeWheel    GameType = "wheel"
 )
 
 // GameMode - режим игры
@@ -41,6 +44,7 @@ type GameHistory struct {
 	Result     GameResult             `db:"result" json:"result"`
 	BetAmount  int64                  `db:"bet_amount" json:"bet_amount"`
 	WinAmount  int64                  `db:"win_amount" json:"win_amount"`
+	Currency   Currency               `db:"currency" json:"currency"` // gems or coins
 	Details    map[string]interface{} `db:"details" json:"details,omitempty"`
 	CreatedAt  time.Time              `db:"created_at" json:"created_at"`
 }

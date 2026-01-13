@@ -127,10 +127,15 @@ func (h *Handler) ClaimQuestReward(c *gin.Context) {
 }
 
 // updateQuestsAfterGame вызывается после каждой игры для обновления прогресса квестов
+// Deprecated: use updateQuestsAfterGameWithCtx instead
 func (h *Handler) updateQuestsAfterGame(userID int64, gameType string, result string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	h.updateQuestsAfterGameWithCtx(ctx, userID, gameType, result)
+}
 
+// updateQuestsAfterGameWithCtx вызывается после каждой игры для обновления прогресса квестов
+func (h *Handler) updateQuestsAfterGameWithCtx(ctx context.Context, userID int64, gameType string, result string) {
 	// Получаем все активные квесты
 	quests, err := h.QuestRepo.GetActiveQuests(ctx)
 	if err != nil {

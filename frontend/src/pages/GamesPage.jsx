@@ -7,6 +7,9 @@ import { MinesGame } from '../components/games/MinesGame'
 import { GameModeSelector } from '../components/games/GameModeSelector'
 import { PvPRPSGame } from '../components/games/PvPRPSGame'
 import { PvPMinesGame } from '../components/games/PvPMinesGame'
+import { WheelGame } from '../components/games/WheelGame'
+import { DiceGame } from '../components/games/DiceGame'
+import { MinesProGame } from '../components/games/MinesProGame'
 
 const games = [
   {
@@ -32,6 +35,30 @@ const games = [
     description: 'Avoid the bombs',
     multiplier: 'x2',
     hasPvP: true,
+  },
+  {
+    id: 'wheel',
+    icon: '🎡',
+    title: 'Wheel of Fortune',
+    description: 'Spin to win up to 10x',
+    multiplier: 'x10',
+    hasPvP: false,
+  },
+  {
+    id: 'dice',
+    icon: '🎲',
+    title: 'Dice',
+    description: 'Predict the roll',
+    multiplier: 'x100',
+    hasPvP: false,
+  },
+  {
+    id: 'mines-pro',
+    icon: '💎',
+    title: 'Mines Pro',
+    description: 'Multi-round mines',
+    multiplier: 'x24',
+    hasPvP: false,
   },
 ]
 
@@ -178,6 +205,31 @@ export function GamesPage({ user, setUser, addGems }) {
 
       {activeGame === 'mines' && gameMode === 'pvp' && (
         <PvPMinesGame
+          user={user}
+          onClose={handleClose}
+          onResult={handleGameResult}
+        />
+      )}
+
+      {/* New PvE Games */}
+      {activeGame === 'wheel' && (
+        <WheelGame
+          user={user}
+          onClose={handleClose}
+          onResult={handleGameResult}
+        />
+      )}
+
+      {activeGame === 'dice' && (
+        <DiceGame
+          user={user}
+          onClose={handleClose}
+          onResult={handleGameResult}
+        />
+      )}
+
+      {activeGame === 'mines-pro' && (
+        <MinesProGame
           user={user}
           onClose={handleClose}
           onResult={handleGameResult}

@@ -21,6 +21,10 @@ type Client struct {
 	Conn     *websocket.Conn
 	Send     chan []byte
 
+	// Betting info
+	BetAmount int64
+	Currency  string // "gems" or "coins"
+
 	Hub        *Hub
 	Room       *Room
 	Ready      chan struct{}
@@ -31,12 +35,14 @@ type Client struct {
 	pending    [][]byte
 }
 
-func NewClient(userID int64, conn *websocket.Conn, hub *Hub, gameType string) *Client {
+func NewClient(userID int64, conn *websocket.Conn, hub *Hub, gameType string, betAmount int64, currency string) *Client {
 	return &Client{
 		UserID:     userID,
 		GameType:   gameType,
 		Conn:       conn,
 		Send:       make(chan []byte, 1024),
+		BetAmount:  betAmount,
+		Currency:   currency,
 		Hub:        hub,
 		Ready:      make(chan struct{}),
 		Registered: make(chan struct{}, 1),
@@ -81,7 +87,7 @@ func (c *Client) Run() {
 	<-c.Done
 }
 
-// ===== READ =====
+//read
 func (c *Client) readPump() {
 	log.Printf("Client.readPump: START for user=%d", c.UserID)
 	defer func() {
@@ -115,7 +121,7 @@ func (c *Client) readPump() {
 	}
 }
 
-// ===== WRITE =====
+//write
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -154,7 +160,7 @@ func (c *Client) writePump() {
 	}
 }
 
-// ===== DISCONNECT =====
+//disconnect
 func (c *Client) disconnect() {
 	if c.Room != nil {
 		c.Hub.OnDisconnect(c)
