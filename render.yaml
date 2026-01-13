@@ -29,8 +29,8 @@ services:
   - type: web
     name: telegram-webapp-frontend
     runtime: static
-    buildCommand: cd frontend-new && npm install && npm run build
-    staticPublishPath: ./frontend
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
     pullRequestPreviewsEnabled: true
     headers:
       - path: /*
