@@ -492,9 +492,18 @@ func (b *AdminBot) handleBroadcast(ctx context.Context, message string) string {
 		return "Usage: /broadcast <message>"
 	}
 
+	b.log.Info("starting broadcast", "message", message)
+
 	userIDs, err := b.adminService.GetAllUserTgIDs(ctx)
 	if err != nil {
+		b.log.Error("failed to get user IDs", "error", err)
 		return fmt.Sprintf("Error getting users: %v", err)
+	}
+
+	b.log.Info("found users for broadcast", "count", len(userIDs))
+
+	if len(userIDs) == 0 {
+		return "No users found to broadcast to"
 	}
 
 	sent := 0
@@ -505,6 +514,7 @@ func (b *AdminBot) handleBroadcast(ctx context.Context, message string) string {
 		msg.ParseMode = "HTML"
 
 		if _, err := b.bot.Send(msg); err != nil {
+			b.log.Error("failed to send broadcast message", "tg_id", tgID, "error", err)
 			failed++
 		} else {
 			sent++
@@ -514,6 +524,7 @@ func (b *AdminBot) handleBroadcast(ctx context.Context, message string) string {
 		time.Sleep(50 * time.Millisecond)
 	}
 
+	b.log.Info("broadcast complete", "sent", sent, "failed", failed)
 	return fmt.Sprintf("Broadcast complete. Sent: %d, Failed: %d", sent, failed)
 }
 

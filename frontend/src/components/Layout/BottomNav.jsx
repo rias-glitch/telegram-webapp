@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 const navItems = [
   { path: '/', icon: '🎮', label: 'Игры' },
   { path: '/wallet', icon: '💰', label: 'Кошелёк' },
-  { path: '/top', icon: '🏆', label: 'Топ' },
+  // { path: '/top', icon: '🏆', label: 'Топ' }, // Temporarily hidden
   { path: '/profile', icon: '👤', label: 'Профиль' },
 ]
 

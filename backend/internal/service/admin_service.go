@@ -329,9 +329,10 @@ func (s *AdminService) RejectWithdrawal(ctx context.Context, id int64, reason st
 // Broadcast sends a message to all users (returns count)
 // Note: This just stores the message - actual sending happens via bot
 func (s *AdminService) GetAllUserTgIDs(ctx context.Context) ([]int64, error) {
-	rows, err := s.db.Query(ctx, `SELECT tg_id FROM users WHERE gems >= 0`)
+	query := `SELECT tg_id FROM users WHERE tg_id IS NOT NULL ORDER BY id`
+	rows, err := s.db.Query(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query failed: %w", err)
 	}
 	defer rows.Close()
 
@@ -339,9 +340,14 @@ func (s *AdminService) GetAllUserTgIDs(ctx context.Context) ([]int64, error) {
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
-			continue
+			return nil, fmt.Errorf("scan failed: %w", err)
 		}
 		ids = append(ids, id)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration failed: %w", err)
+	}
+
 	return ids, nil
 }
