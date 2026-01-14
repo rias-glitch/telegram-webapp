@@ -48,7 +48,7 @@ type Withdrawal struct {
 	WalletAddress string           `db:"wallet_address" json:"wallet_address"`
 	CoinsAmount   int64            `db:"coins_amount" json:"coins_amount"` // Amount in coins
 	TonAmountNano int64            `db:"ton_amount_nano" json:"ton_amount_nano"`
-	FeeCoins      int64            `db:"fee_coins" json:"fee_coins"` // 5% fee in coins
+	FeeCoins      int64            `db:"fee_coins" json:"fee_coins"` // Fixed fee in coins (0.1 TON = 1 coin)
 	ExchangeRate  int              `db:"exchange_rate" json:"exchange_rate"` // CoinsPerTON
 	Status        WithdrawalStatus `db:"status" json:"status"`
 	TxHash        string           `db:"tx_hash" json:"tx_hash,omitempty"`
@@ -90,10 +90,11 @@ type WithdrawRequest struct {
 // WithdrawEstimate shows user what they'll receive
 type WithdrawEstimate struct {
 	CoinsAmount   int64   `json:"coins_amount"`
-	FeeCoins      int64   `json:"fee_coins"`      // 5% fee
-	NetCoins      int64   `json:"net_coins"`      // After fee
-	TonAmount     string  `json:"ton_amount"`     // human readable
+	FeeCoins      int64   `json:"fee_coins"`       // Fixed fee in coins
+	NetCoins      int64   `json:"net_coins"`       // After fee
+	TonAmount     string  `json:"ton_amount"`      // human readable
 	TonAmountNano int64   `json:"ton_amount_nano"` // in nanoTON
-	ExchangeRate  int     `json:"exchange_rate"`  // 10 coins per TON
-	FeePercent    float64 `json:"fee_percent"`    // 5%
+	ExchangeRate  int     `json:"exchange_rate"`   // 10 coins per TON
+	FeePercent    float64 `json:"fee_percent"`     // Legacy field (0 for fixed fee)
+	FeeTON        float64 `json:"fee_ton"`         // Fixed fee in TON (0.1)
 }

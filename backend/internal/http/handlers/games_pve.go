@@ -11,18 +11,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// DiceRequest represents the dice game request
+// DiceRequest represents the dice game request (1-6 dice)
 type DiceRequest struct {
-	Bet      int64   `json:"bet" binding:"required,min=1"`
-	Target   float64 `json:"target" binding:"required"`
-	RollOver bool    `json:"roll_over"`
+	Bet    int64 `json:"bet" binding:"required,min=1"`
+	Target int   `json:"target" binding:"required,min=1,max=6"`
 }
 
-// DiceResponse represents the dice game response
+// DiceResponse represents the dice game response (1-6 dice)
 type DiceResponse struct {
-	Target     float64 `json:"target"`
-	RollOver   bool    `json:"roll_over"`
-	Result     float64 `json:"result"`
+	Target     int     `json:"target"`
+	Result     int     `json:"result"`
 	Multiplier float64 `json:"multiplier"`
 	WinChance  float64 `json:"win_chance"`
 	Won        bool    `json:"won"`
@@ -44,9 +42,9 @@ func (h *Handler) Dice(c *gin.Context) {
 		return
 	}
 
-	// Validate target range
+	// Validate target range (1-6)
 	if req.Target < game.DiceMinTarget || req.Target > game.DiceMaxTarget {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "target must be between 1.00 and 98.99"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target must be between 1 and 6"})
 		return
 	}
 
@@ -77,8 +75,8 @@ func (h *Handler) Dice(c *gin.Context) {
 		return
 	}
 
-	// Play the game
-	diceGame := game.NewDiceGame(req.Target, req.RollOver)
+	// Play the game (1-6 dice)
+	diceGame := game.NewDiceGame(req.Target)
 	diceGame.Roll()
 
 	// Calculate winnings
@@ -129,7 +127,6 @@ func (h *Handler) Dice(c *gin.Context) {
 
 	c.JSON(http.StatusOK, DiceResponse{
 		Target:     diceGame.Target,
-		RollOver:   diceGame.RollOver,
 		Result:     diceGame.Result,
 		Multiplier: diceGame.Multiplier,
 		WinChance:  diceGame.WinChance(),
@@ -139,38 +136,15 @@ func (h *Handler) Dice(c *gin.Context) {
 	})
 }
 
-// DiceInfoResponse returns info about possible dice configurations
-type DiceInfoResponse struct {
-	MinTarget   float64 `json:"min_target"`
-	MaxTarget   float64 `json:"max_target"`
-	ExampleBets []struct {
-		Target     float64 `json:"target"`
-		RollOver   bool    `json:"roll_over"`
-		WinChance  float64 `json:"win_chance"`
-		Multiplier float64 `json:"multiplier"`
-	} `json:"example_bets"`
-}
-
-// DiceInfo returns dice game configuration info
+// DiceInfo returns dice game configuration info (1-6 dice)
 func (h *Handler) DiceInfo(c *gin.Context) {
-	// Fair odds: multiplier = 100 / win_chance
-	examples := []struct {
-		Target     float64 `json:"target"`
-		RollOver   bool    `json:"roll_over"`
-		WinChance  float64 `json:"win_chance"`
-		Multiplier float64 `json:"multiplier"`
-	}{
-		{Target: 50.00, RollOver: true, WinChance: 49.99, Multiplier: 2.00},
-		{Target: 25.00, RollOver: false, WinChance: 25.00, Multiplier: 4.00},
-		{Target: 75.00, RollOver: true, WinChance: 24.99, Multiplier: 4.00},
-		{Target: 90.00, RollOver: false, WinChance: 90.00, Multiplier: 1.11},
-		{Target: 10.00, RollOver: false, WinChance: 10.00, Multiplier: 10.00},
-	}
-
 	c.JSON(http.StatusOK, gin.H{
-		"min_target":   game.DiceMinTarget,
-		"max_target":   game.DiceMaxTarget,
-		"example_bets": examples,
+		"min_target":  game.DiceMinTarget,  // 1
+		"max_target":  game.DiceMaxTarget,  // 6
+		"sides":       game.DiceSides,      // 6
+		"multiplier":  game.DiceMultiplier, // 5.5x
+		"win_chance":  100.0 / float64(game.DiceSides), // 16.67%
+		"description": "Pick a number 1-6. If dice matches your number, you win 5.5x!",
 	})
 }
 

@@ -5,27 +5,19 @@ import { playDice } from '../../api/games'
 
 const BET_PRESETS = [10, 50, 100, 500]
 
+const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅']
+
 export function DiceGame({ user, onClose, onResult }) {
   const [bet, setBet] = useState(10)
-  const [target, setTarget] = useState(50)
-  const [rollOver, setRollOver] = useState(true)
+  const [target, setTarget] = useState(1)
   const [loading, setLoading] = useState(false)
   const [rolling, setRolling] = useState(false)
   const [result, setResult] = useState(null)
-  const [displayValue, setDisplayValue] = useState(0)
+  const [displayValue, setDisplayValue] = useState(1)
 
-  // Calculate win chance and multiplier
-  const { winChance, multiplier } = useMemo(() => {
-    let chance
-    if (rollOver) {
-      chance = 99.99 - target
-    } else {
-      chance = target
-    }
-    chance = Math.max(0.01, Math.min(98.99, chance))
-    const mult = Math.floor((100 / chance) * 100) / 100
-    return { winChance: chance, multiplier: mult }
-  }, [target, rollOver])
+  // Fixed values for 1-6 dice
+  const winChance = 16.67 // 1 out of 6
+  const multiplier = 5.5  // Fixed multiplier
 
   const handleRoll = async () => {
     if (bet <= 0 || bet > (user?.gems || 0)) return
@@ -35,12 +27,12 @@ export function DiceGame({ user, onClose, onResult }) {
       setRolling(true)
       setResult(null)
 
-      // Animate dice rolling
+      // Animate dice rolling (cycle through faces)
       const rollInterval = setInterval(() => {
-        setDisplayValue(Math.random() * 100)
-      }, 50)
+        setDisplayValue(Math.floor(Math.random() * 6) + 1)
+      }, 100)
 
-      const response = await playDice(bet, target, rollOver)
+      const response = await playDice(bet, target)
 
       // Stop animation and show result
       setTimeout(() => {
@@ -67,11 +59,11 @@ export function DiceGame({ user, onClose, onResult }) {
       <div className="space-y-6">
         {/* Dice display */}
         <div className="flex justify-center py-6">
-          <div className={`text-6xl font-mono font-bold transition-all ${
-            rolling ? 'animate-pulse text-white/60' :
-            result ? (result.won ? 'text-success' : 'text-danger') : 'text-white'
+          <div className={`text-9xl transition-all duration-300 ${
+            rolling ? 'animate-spin' :
+            result ? (result.won ? 'text-success scale-110' : 'text-danger scale-110') : 'text-white'
           }`}>
-            {displayValue.toFixed(2)}
+            {DICE_FACES[displayValue - 1]}
           </div>
         </div>
 
@@ -85,7 +77,7 @@ export function DiceGame({ user, onClose, onResult }) {
               {result.won ? `+${result.win_amount}` : `-${bet}`} gems
             </div>
             <div className="text-sm text-white/40">
-              Roll {rollOver ? 'over' : 'under'} {target} → Got {result.result.toFixed(2)}
+              Your pick: {target} → Rolled: {result.result}
             </div>
           </div>
         )}
@@ -97,49 +89,26 @@ export function DiceGame({ user, onClose, onResult }) {
         {/* Game controls */}
         {!result && (
           <>
-            {/* Roll over/under toggle */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setRollOver(false)}
-                className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  !rollOver ? 'bg-primary text-white' : 'bg-white/10 text-white/60'
-                }`}
-              >
-                Roll Under
-              </button>
-              <button
-                onClick={() => setRollOver(true)}
-                className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-                  rollOver ? 'bg-primary text-white' : 'bg-white/10 text-white/60'
-                }`}
-              >
-                Roll Over
-              </button>
-            </div>
-
-            {/* Target slider */}
+            {/* Pick your number */}
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/60">Target: {target.toFixed(2)}</span>
-                <span className="text-white/60">
-                  {rollOver ? `> ${target}` : `< ${target}`}
-                </span>
+              <label className="text-sm text-white/60">Pick your number (1-6)</label>
+              <div className="grid grid-cols-6 gap-2">
+                {[1, 2, 3, 4, 5, 6].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setTarget(num)}
+                    className={`aspect-square rounded-xl font-bold text-3xl transition-all ${
+                      target === num
+                        ? 'bg-primary text-white scale-110 shadow-lg'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20 hover:scale-105'
+                    }`}
+                  >
+                    {DICE_FACES[num - 1]}
+                  </button>
+                ))}
               </div>
-              <input
-                type="range"
-                min="1"
-                max="98.99"
-                step="0.01"
-                value={target}
-                onChange={(e) => setTarget(parseFloat(e.target.value))}
-                className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              {/* Visual indicator */}
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden relative">
-                <div
-                  className={`absolute h-full ${rollOver ? 'bg-success right-0' : 'bg-success left-0'}`}
-                  style={{ width: `${winChance}%` }}
-                />
+              <div className="text-center text-sm text-white/40">
+                Pick a number and roll the dice!
               </div>
             </div>
 
@@ -151,7 +120,7 @@ export function DiceGame({ user, onClose, onResult }) {
               </div>
               <div className="bg-white/5 rounded-xl p-3">
                 <div className="text-white/60 text-sm">Multiplier</div>
-                <div className="text-xl font-bold text-primary">{multiplier.toFixed(2)}x</div>
+                <div className="text-xl font-bold text-primary">{multiplier}x</div>
               </div>
             </div>
 

@@ -5,23 +5,26 @@ import (
 	"math/big"
 )
 
-// DiceGame represents a single dice roll game
+// DiceGame represents a single dice roll game (1-6 dice)
 type DiceGame struct {
-	Target     float64 `json:"target"`      // Target number (1.00 - 98.99)
-	RollOver   bool    `json:"roll_over"`   // true = win if result > target, false = win if result < target
-	Result     float64 `json:"result"`      // Roll result (0.00 - 99.99)
+	Target     int     `json:"target"`      // Target number (1-6)
+	Result     int     `json:"result"`      // Roll result (1-6)
 	Multiplier float64 `json:"multiplier"`  // Payout multiplier
 	Won        bool    `json:"won"`         // Whether player won
+	// Legacy fields for backward compatibility
+	RollOver   bool    `json:"roll_over,omitempty"`
 }
 
 const (
-	DiceMinTarget = 1.00
-	DiceMaxTarget = 98.99
+	DiceMinTarget = 1
+	DiceMaxTarget = 6
+	DiceSides     = 6
+	DiceMultiplier = 5.5 // 6 sides, fair odds would be 6x, house edge makes it 5.5x
 )
 
 // NewDiceGame creates a new dice game with the given parameters
-func NewDiceGame(target float64, rollOver bool) *DiceGame {
-	// Clamp target to valid range
+func NewDiceGame(target int) *DiceGame {
+	// Clamp target to valid range (1-6)
 	if target < DiceMinTarget {
 		target = DiceMinTarget
 	}
@@ -30,49 +33,37 @@ func NewDiceGame(target float64, rollOver bool) *DiceGame {
 	}
 
 	g := &DiceGame{
-		Target:   target,
-		RollOver: rollOver,
+		Target:     target,
+		Multiplier: DiceMultiplier, // Fixed 5.5x for guessing correct number
 	}
-	g.Multiplier = g.CalculateMultiplier()
 	return g
 }
 
-// CalculateMultiplier returns the payout multiplier based on win chance
+// CalculateMultiplier returns the payout multiplier (fixed 5.5x for 1-6 dice)
 func (g *DiceGame) CalculateMultiplier() float64 {
-	winChance := g.WinChance()
-	if winChance <= 0 {
-		return 0
-	}
-	return 100.0 / winChance
+	return DiceMultiplier
 }
 
-// WinChance returns the probability of winning (0-100)
+// WinChance returns the probability of winning (percentage)
 func (g *DiceGame) WinChance() float64 {
-	if g.RollOver {
-		return 99.99 - g.Target
-	}
-	return g.Target
+	// 1 out of 6 sides = 16.67%
+	return 100.0 / float64(DiceSides)
 }
 
-// Roll performs the dice roll and returns the result
-func (g *DiceGame) Roll() float64 {
-	// Generate cryptographically secure random number
-	// Result is 0.00 to 99.99 (10000 possibilities)
-	max := big.NewInt(10000)
+// Roll performs the dice roll and returns the result (1-6)
+func (g *DiceGame) Roll() int {
+	// Generate cryptographically secure random number (1-6)
+	max := big.NewInt(DiceSides)
 	n, err := rand.Int(rand.Reader, max)
 	if err != nil {
 		// Fallback - should never happen
-		n = big.NewInt(5000)
+		n = big.NewInt(0)
 	}
 
-	g.Result = float64(n.Int64()) / 100.0
+	g.Result = int(n.Int64()) + 1 // Convert 0-5 to 1-6
 
-	// Determine win/loss
-	if g.RollOver {
-		g.Won = g.Result > g.Target
-	} else {
-		g.Won = g.Result < g.Target
-	}
+	// Determine win/loss - you win if you guess the correct number
+	g.Won = g.Result == g.Target
 
 	return g.Result
 }

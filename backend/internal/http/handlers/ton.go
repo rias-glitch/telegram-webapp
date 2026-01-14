@@ -303,7 +303,8 @@ func (h *TonHandler) RequestWithdrawal(c *gin.Context, db *pgx.Conn) {
 			TonAmount:     fmt.Sprintf("%.4f", ton.NanoToTON(tonAmountNano)),
 			TonAmountNano: tonAmountNano,
 			ExchangeRate:  ton.CoinsPerTON,
-			FeePercent:    float64(ton.WithdrawFeePercent),
+			FeePercent:    0, // No longer percentage-based, using fixed fee
+			FeeTON:        ton.CoinsToTON(feeCoins),
 		},
 	})
 }
@@ -336,7 +337,8 @@ func (h *TonHandler) GetWithdrawEstimate(c *gin.Context) {
 		TonAmount:     fmt.Sprintf("%.4f", ton.NanoToTON(tonAmountNano)),
 		TonAmountNano: tonAmountNano,
 		ExchangeRate:  ton.CoinsPerTON,
-		FeePercent:    float64(ton.WithdrawFeePercent),
+		FeePercent:    0, // No longer percentage-based, using fixed fee
+		FeeTON:        ton.CoinsToTON(feeCoins),
 	})
 }
 
@@ -390,13 +392,15 @@ func (h *TonHandler) CancelWithdrawal(c *gin.Context) {
 // GetTonConfig returns TON configuration for frontend
 func (h *TonHandler) GetTonConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"platform_wallet":          h.PlatformWallet,
-		"coins_per_ton":            ton.CoinsPerTON, // 10 coins = 1 TON
-		"min_deposit_ton":          fmt.Sprintf("%.2f", ton.NanoToTON(ton.MinDepositNano)),
-		"min_withdraw_coins":       ton.MinWithdrawCoins,
-		"withdraw_fee_percent":     ton.WithdrawFeePercent, // 5%
+		"platform_wallet":            h.PlatformWallet,
+		"coins_per_ton":              ton.CoinsPerTON, // 10 coins = 1 TON
+		"min_deposit_ton":            fmt.Sprintf("%.2f", ton.NanoToTON(ton.MinDepositNano)),
+		"min_withdraw_coins":         ton.MinWithdrawCoins,
+		"withdraw_fee_coins":         ton.WithdrawFeeCoinsFixed, // 1 coin = 0.1 TON
+		"withdraw_fee_ton":           ton.CoinsToTON(ton.WithdrawFeeCoinsFixed), // 0.1 TON
+		"withdraw_fee_percent":       0, // No longer percentage-based
 		"max_withdraw_coins_per_day": ton.MaxWithdrawCoinsPerDay,
-		"network":                  os.Getenv("TON_NETWORK"),
+		"network":                    os.Getenv("TON_NETWORK"),
 	})
 }
 

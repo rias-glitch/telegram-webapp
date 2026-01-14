@@ -20,7 +20,10 @@ const (
 	// MinWithdrawCoins is the minimum withdrawal amount in coins (10 coins = 1 TON)
 	MinWithdrawCoins = 10
 
-	// WithdrawFeePercent is the platform fee on withdrawals (5%)
+	// WithdrawFeeCoinsFixed is the fixed platform fee on withdrawals (1 coin = 0.1 TON)
+	WithdrawFeeCoinsFixed = 1
+
+	// WithdrawFeePercent is kept for backward compatibility but not used (replaced by fixed fee)
 	WithdrawFeePercent = 5
 
 	// MaxWithdrawCoinsPerDay is the maximum withdrawal per day in coins (1000 coins = 100 TON)
@@ -100,14 +103,14 @@ func TONToCoins(ton float64) int64 {
 	return int64(ton * CoinsPerTON)
 }
 
-// CalculateWithdrawFeeCoins calculates the fee for a withdrawal in coins
+// CalculateWithdrawFeeCoins calculates the fee for a withdrawal in coins (fixed 0.1 TON = 1 coin)
 func CalculateWithdrawFeeCoins(coinsAmount int64) int64 {
-	return coinsAmount * WithdrawFeePercent / 100
+	return WithdrawFeeCoinsFixed
 }
 
 // CalculateWithdrawNetCoins calculates the net coins after fee
 func CalculateWithdrawNetCoins(coinsAmount int64) int64 {
-	return coinsAmount - CalculateWithdrawFeeCoins(coinsAmount)
+	return coinsAmount - WithdrawFeeCoinsFixed
 }
 
 // Legacy functions for backward compatibility

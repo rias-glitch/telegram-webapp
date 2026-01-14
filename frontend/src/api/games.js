@@ -33,9 +33,9 @@ export async function getWheelInfo() {
   return api.get('/game/wheel/info')
 }
 
-// Dice game
-export async function playDice(bet, target, rollOver) {
-  return api.post('/game/dice', { bet, target, roll_over: rollOver })
+// Dice game (1-6)
+export async function playDice(bet, target) {
+  return api.post('/game/dice', { bet, target })
 }
 
 export async function getDiceInfo() {

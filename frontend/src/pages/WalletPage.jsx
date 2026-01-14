@@ -140,6 +140,46 @@ export function WalletPage({ user }) {
     }
   }
 
+  const handleQuickDeposit = async (tonAmount) => {
+    if (!tonConnectUI || !depositInfo) {
+      alert('Please wait for wallet to connect')
+      return
+    }
+
+    try {
+      // Convert TON to nanoTON (1 TON = 1,000,000,000 nanoTON)
+      const nanoTON = Math.floor(tonAmount * 1_000_000_000)
+
+      // Create transaction
+      const transaction = {
+        validUntil: Math.floor(Date.now() / 1000) + 600, // 10 minutes
+        messages: [
+          {
+            address: depositInfo.platform_address,
+            amount: nanoTON.toString(),
+            payload: depositInfo.memo ? btoa(depositInfo.memo) : undefined,
+          },
+        ],
+      }
+
+      // Send transaction (this will open wallet for confirmation)
+      const result = await tonConnectUI.sendTransaction(transaction)
+
+      if (result) {
+        alert(`Transaction sent! Your coins will be credited after confirmation. TX: ${result.boc}`)
+        // Refresh data after a delay to check for deposit
+        setTimeout(() => fetchData(), 5000)
+      }
+    } catch (err) {
+      console.error('Quick deposit failed:', err)
+      if (err.message?.includes('user rejects')) {
+        alert('Transaction cancelled')
+      } else {
+        alert('Failed to send transaction: ' + err.message)
+      }
+    }
+  }
+
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString('ru-RU', {
       day: 'numeric',
@@ -241,8 +281,39 @@ export function WalletPage({ user }) {
           {/* Deposit tab */}
           {activeTab === 'deposit' && depositInfo && (
             <Card>
-              <CardTitle className="mb-4">Deposit TON</CardTitle>
+              <CardTitle className="mb-4">Buy Coins</CardTitle>
               <div className="space-y-4">
+                {/* Quick deposit offers */}
+                <div className="space-y-2">
+                  <label className="text-sm text-white/60">Quick deposit</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { ton: 1, coins: 10 },
+                      { ton: 5, coins: 50 },
+                      { ton: 10, coins: 100 },
+                      { ton: 50, coins: 500 },
+                    ].map((offer) => (
+                      <button
+                        key={offer.ton}
+                        onClick={() => handleQuickDeposit(offer.ton)}
+                        className="bg-gradient-to-r from-primary/20 to-cyan-500/20 border border-primary/50 rounded-xl p-4 hover:from-primary/30 hover:to-cyan-500/30 transition-all hover:scale-105 active:scale-95"
+                      >
+                        <div className="text-lg font-bold">{offer.ton} TON</div>
+                        <div className="text-success text-sm">+{offer.coins} coins</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-white/10"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-dark px-2 text-white/40">or manual deposit</span>
+                  </div>
+                </div>
+
                 <div className="bg-white/5 rounded-xl p-4 text-center">
                   <div className="text-white/60 text-sm mb-2">Send TON to this address:</div>
                   <div className="font-mono text-sm break-all bg-dark rounded-lg p-3 mb-2">
@@ -321,7 +392,7 @@ export function WalletPage({ user }) {
                       <span>{withdrawEstimate.coins_amount} coins</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-white/60">Fee ({withdrawEstimate.fee_percent}%)</span>
+                      <span className="text-white/60">Fee ({withdrawEstimate.fee_ton} TON)</span>
                       <span className="text-danger">-{withdrawEstimate.fee_coins} coins</span>
                     </div>
                     <div className="border-t border-white/10 pt-2 flex justify-between">
