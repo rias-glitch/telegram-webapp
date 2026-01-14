@@ -156,31 +156,34 @@ export function WalletPage({ user }) {
 
     try {
       // Convert TON to nanoTON (1 TON = 1,000,000,000 nanoTON)
-      const nanoTON = Math.floor(tonAmount * 1_000_000_000)
+      const nanoTON = Math.floor(tonAmount * 1_000_000_000).toString()
 
-      // Create transaction
+      // Create transaction (simple transfer without payload)
       const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 600, // 10 minutes
         messages: [
           {
             address: depositInfo.platform_address,
-            amount: nanoTON.toString(),
-            payload: depositInfo.memo ? btoa(depositInfo.memo) : undefined,
+            amount: nanoTON,
           },
         ],
       }
 
+      console.log('Sending transaction:', transaction)
+
       // Send transaction (this will open wallet for confirmation)
       const result = await tonConnectUI.sendTransaction(transaction)
 
+      console.log('Transaction result:', result)
+
       if (result) {
-        alert(`Transaction sent! Your coins will be credited after confirmation. TX: ${result.boc}`)
+        alert(`Transaction sent! Your coins will be credited after confirmation.`)
         // Refresh data after a delay to check for deposit
         setTimeout(() => fetchData(), 5000)
       }
     } catch (err) {
       console.error('Quick deposit failed:', err)
-      if (err.message?.includes('user rejects')) {
+      if (err.message?.includes('user rejects') || err.message?.includes('User rejected')) {
         alert('Transaction cancelled')
       } else {
         alert('Failed to send transaction: ' + err.message)
