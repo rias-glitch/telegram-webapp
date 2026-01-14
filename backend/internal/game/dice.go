@@ -64,9 +64,12 @@ func NewDiceGame(target int, mode string) *DiceGame {
 	return g
 }
 
-// CalculateMultiplier returns the payout multiplier (fixed 5.5x for 1-6 dice)
+// CalculateMultiplier returns the payout multiplier based on mode
 func (g *DiceGame) CalculateMultiplier() float64 {
-	return DiceMultiplier
+	if g.Mode == DiceModeExact {
+		return DiceMultiplierExact
+	}
+	return DiceMultiplierRange
 }
 
 // WinChance returns the probability of winning (percentage)
