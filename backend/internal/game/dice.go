@@ -7,8 +7,9 @@ import (
 
 // DiceGame represents a single dice roll game (1-6 dice)
 type DiceGame struct {
-	Target     int     `json:"target"`      // Target number (1-6)
+	Target     int     `json:"target"`      // Target number (1-6) or range indicator
 	Result     int     `json:"result"`      // Roll result (1-6)
+	Mode       string  `json:"mode"`        // "exact", "low" (1-3), "high" (4-6)
 	Multiplier float64 `json:"multiplier"`  // Payout multiplier
 	Won        bool    `json:"won"`         // Whether player won
 	// Legacy fields for backward compatibility
@@ -19,22 +20,46 @@ const (
 	DiceMinTarget = 1
 	DiceMaxTarget = 6
 	DiceSides     = 6
-	DiceMultiplier = 5.5 // 6 sides, fair odds would be 6x, house edge makes it 5.5x
+	DiceModeExact = "exact"  // Guess exact number
+	DiceModeLow   = "low"    // 1-3 range
+	DiceModeHigh  = "high"   // 4-6 range
+
+	DiceMultiplierExact = 5.5  // 1/6 chance = 5.5x
+	DiceMultiplierRange = 1.8  // 1/2 chance = 1.8x (house edge)
 )
 
 // NewDiceGame creates a new dice game with the given parameters
-func NewDiceGame(target int) *DiceGame {
-	// Clamp target to valid range (1-6)
-	if target < DiceMinTarget {
-		target = DiceMinTarget
+func NewDiceGame(target int, mode string) *DiceGame {
+	// Validate mode
+	if mode != DiceModeExact && mode != DiceModeLow && mode != DiceModeHigh {
+		mode = DiceModeExact // Default to exact mode
 	}
-	if target > DiceMaxTarget {
-		target = DiceMaxTarget
+
+	// For range modes, target is not used
+	if mode == DiceModeLow || mode == DiceModeHigh {
+		target = 0 // Not applicable for range bets
+	} else {
+		// Clamp target to valid range (1-6) for exact mode
+		if target < DiceMinTarget {
+			target = DiceMinTarget
+		}
+		if target > DiceMaxTarget {
+			target = DiceMaxTarget
+		}
+	}
+
+	// Calculate multiplier based on mode
+	var multiplier float64
+	if mode == DiceModeExact {
+		multiplier = DiceMultiplierExact // 5.5x for exact number
+	} else {
+		multiplier = DiceMultiplierRange // 1.8x for range
 	}
 
 	g := &DiceGame{
 		Target:     target,
-		Multiplier: DiceMultiplier, // Fixed 5.5x for guessing correct number
+		Mode:       mode,
+		Multiplier: multiplier,
 	}
 	return g
 }
@@ -46,8 +71,16 @@ func (g *DiceGame) CalculateMultiplier() float64 {
 
 // WinChance returns the probability of winning (percentage)
 func (g *DiceGame) WinChance() float64 {
-	// 1 out of 6 sides = 16.67%
-	return 100.0 / float64(DiceSides)
+	switch g.Mode {
+	case DiceModeExact:
+		// 1 out of 6 = 16.67%
+		return 100.0 / float64(DiceSides)
+	case DiceModeLow, DiceModeHigh:
+		// 3 out of 6 = 50%
+		return 50.0
+	default:
+		return 0
+	}
 }
 
 // Roll performs the dice roll and returns the result (1-6)
@@ -62,8 +95,20 @@ func (g *DiceGame) Roll() int {
 
 	g.Result = int(n.Int64()) + 1 // Convert 0-5 to 1-6
 
-	// Determine win/loss - you win if you guess the correct number
-	g.Won = g.Result == g.Target
+	// Determine win/loss based on mode
+	switch g.Mode {
+	case DiceModeExact:
+		// Win if exact number matches
+		g.Won = g.Result == g.Target
+	case DiceModeLow:
+		// Win if result is 1, 2, or 3
+		g.Won = g.Result >= 1 && g.Result <= 3
+	case DiceModeHigh:
+		// Win if result is 4, 5, or 6
+		g.Won = g.Result >= 4 && g.Result <= 6
+	default:
+		g.Won = false
+	}
 
 	return g.Result
 }
@@ -80,7 +125,7 @@ func (g *DiceGame) CalculateWinAmount(bet int64) int64 {
 func (g *DiceGame) ToDetails() map[string]interface{} {
 	return map[string]interface{}{
 		"target":     g.Target,
-		"roll_over":  g.RollOver,
+		"mode":       g.Mode,
 		"result":     g.Result,
 		"multiplier": g.Multiplier,
 		"win_chance": g.WinChance(),

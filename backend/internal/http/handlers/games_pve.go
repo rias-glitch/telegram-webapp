@@ -13,14 +13,16 @@ import (
 
 // DiceRequest represents the dice game request (1-6 dice)
 type DiceRequest struct {
-	Bet    int64 `json:"bet" binding:"required,min=1"`
-	Target int   `json:"target" binding:"required,min=1,max=6"`
+	Bet    int64  `json:"bet" binding:"required,min=1"`
+	Target int    `json:"target"` // Required for "exact" mode, ignored for range modes
+	Mode   string `json:"mode" binding:"required,oneof=exact low high"`
 }
 
 // DiceResponse represents the dice game response (1-6 dice)
 type DiceResponse struct {
 	Target     int     `json:"target"`
 	Result     int     `json:"result"`
+	Mode       string  `json:"mode"`
 	Multiplier float64 `json:"multiplier"`
 	WinChance  float64 `json:"win_chance"`
 	Won        bool    `json:"won"`
@@ -42,10 +44,18 @@ func (h *Handler) Dice(c *gin.Context) {
 		return
 	}
 
-	// Validate target range (1-6)
-	if req.Target < game.DiceMinTarget || req.Target > game.DiceMaxTarget {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "target must be between 1 and 6"})
+	// Validate mode
+	if req.Mode != game.DiceModeExact && req.Mode != game.DiceModeLow && req.Mode != game.DiceModeHigh {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "mode must be 'exact', 'low', or 'high'"})
 		return
+	}
+
+	// Validate target for exact mode
+	if req.Mode == game.DiceModeExact {
+		if req.Target < game.DiceMinTarget || req.Target > game.DiceMaxTarget {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "target must be between 1 and 6 for exact mode"})
+			return
+		}
 	}
 
 	ctx := c.Request.Context()
@@ -75,8 +85,8 @@ func (h *Handler) Dice(c *gin.Context) {
 		return
 	}
 
-	// Play the game (1-6 dice)
-	diceGame := game.NewDiceGame(req.Target)
+	// Play the game (1-6 dice with mode)
+	diceGame := game.NewDiceGame(req.Target, req.Mode)
 	diceGame.Roll()
 
 	// Calculate winnings
@@ -128,6 +138,7 @@ func (h *Handler) Dice(c *gin.Context) {
 	c.JSON(http.StatusOK, DiceResponse{
 		Target:     diceGame.Target,
 		Result:     diceGame.Result,
+		Mode:       diceGame.Mode,
 		Multiplier: diceGame.Multiplier,
 		WinChance:  diceGame.WinChance(),
 		Won:        diceGame.Won,
@@ -139,12 +150,32 @@ func (h *Handler) Dice(c *gin.Context) {
 // DiceInfo returns dice game configuration info (1-6 dice)
 func (h *Handler) DiceInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"min_target":  game.DiceMinTarget,  // 1
-		"max_target":  game.DiceMaxTarget,  // 6
-		"sides":       game.DiceSides,      // 6
-		"multiplier":  game.DiceMultiplier, // 5.5x
-		"win_chance":  100.0 / float64(game.DiceSides), // 16.67%
-		"description": "Pick a number 1-6. If dice matches your number, you win 5.5x!",
+		"min_target": game.DiceMinTarget, // 1
+		"max_target": game.DiceMaxTarget, // 6
+		"sides":      game.DiceSides,     // 6
+		"modes": []gin.H{
+			{
+				"mode":        game.DiceModeExact,
+				"name":        "Exact Number",
+				"description": "Pick a specific number (1-6)",
+				"multiplier":  game.DiceMultiplierExact,
+				"win_chance":  16.67,
+			},
+			{
+				"mode":        game.DiceModeLow,
+				"name":        "Low (1-3)",
+				"description": "Win if dice shows 1, 2, or 3",
+				"multiplier":  game.DiceMultiplierRange,
+				"win_chance":  50.0,
+			},
+			{
+				"mode":        game.DiceModeHigh,
+				"name":        "High (4-6)",
+				"description": "Win if dice shows 4, 5, or 6",
+				"multiplier":  game.DiceMultiplierRange,
+				"win_chance":  50.0,
+			},
+		},
 	})
 }
 

@@ -42,16 +42,21 @@ export function WalletPage({ user }) {
       setDeposits(depositsRes.deposits || [])
       setWithdrawals(withdrawalsRes.withdrawals || [])
 
-      if (walletRes.wallet) {
-        const info = await tonApi.getDepositInfo()
-        setDepositInfo(info)
+      // Load deposit info if wallet is connected (either backend wallet or TON Connect wallet)
+      if (walletRes.wallet || tonWallet) {
+        try {
+          const info = await tonApi.getDepositInfo()
+          setDepositInfo(info)
+        } catch (err) {
+          console.error('Failed to fetch deposit info:', err)
+        }
       }
     } catch (err) {
       console.error('Failed to fetch wallet data:', err)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [tonWallet])
 
   useEffect(() => {
     fetchData()
@@ -279,6 +284,12 @@ export function WalletPage({ user }) {
           </div>
 
           {/* Deposit tab */}
+          {activeTab === 'deposit' && !depositInfo && (
+            <Card className="text-center py-8">
+              <div className="text-4xl mb-2">⏳</div>
+              <p className="text-white/60">Loading deposit information...</p>
+            </Card>
+          )}
           {activeTab === 'deposit' && depositInfo && (
             <Card>
               <CardTitle className="mb-4">Buy Coins</CardTitle>
