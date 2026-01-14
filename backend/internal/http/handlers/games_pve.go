@@ -353,6 +353,11 @@ func (h *Handler) MinesProReveal(c *gin.Context) {
 		return
 	}
 
+	if req.Cell == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cell is required"})
+		return
+	}
+
 	ctx := c.Request.Context()
 	hitMine, g, err := h.MinesProService.RevealCell(ctx, userID, *req.Cell)
 	if err != nil {

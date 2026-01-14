@@ -22,12 +22,12 @@ export function MinesProGame({ user, onClose, onResult }) {
     getMinesProState().then(state => {
       if (state.active && state.status === 'active') {
         setGameState(state)
-        setRevealedCells(state.revealed || [])
+        setRevealedCells(state.revealed_cells || [])
         setGameOver(false)
       } else if (state.active && state.status !== 'active') {
         // Game finished but not cleared - show result
         setGameState(state)
-        setRevealedCells(state.revealed || [])
+        setRevealedCells(state.revealed_cells || [])
         setMines(state.mines || [])
         setGameOver(true)
         setWon(state.status === 'cashed_out')
@@ -61,7 +61,7 @@ export function MinesProGame({ user, onClose, onResult }) {
       setLoading(true)
       const result = await revealMinesPro(cell)
 
-      setRevealedCells(result.revealed || [])
+      setRevealedCells(result.revealed_cells || [])
       setGameState(result)
 
       if (result.hit_mine) {
@@ -127,7 +127,7 @@ export function MinesProGame({ user, onClose, onResult }) {
               </div>
               <div>
                 <div className="text-xs text-white/60">Multiplier</div>
-                <div className="font-bold text-primary">{gameState.current_multiplier?.toFixed(2)}x</div>
+                <div className="font-bold text-primary">{gameState.multiplier?.toFixed(2)}x</div>
               </div>
               <div>
                 <div className="text-xs text-white/60">Win</div>
@@ -184,7 +184,7 @@ export function MinesProGame({ user, onClose, onResult }) {
                 </div>
                 <div className="text-white/60">
                   {won
-                    ? `Won ${gameState.win_amount} gems (${gameState.current_multiplier?.toFixed(2)}x)`
+                    ? `Won ${gameState.win_amount} gems (${gameState.multiplier?.toFixed(2)}x)`
                     : `Lost ${gameState.bet} gems`
                   }
                 </div>
