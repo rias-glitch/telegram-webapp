@@ -30,6 +30,7 @@ export function WalletPage({ user }) {
   const [withdrawing, setWithdrawing] = useState(false)
 
   const fetchData = useCallback(async () => {
+    setLoading(true)
     try {
       const [configRes, walletRes, depositsRes, withdrawalsRes] = await Promise.all([
         tonApi.getTonConfig(),
@@ -41,22 +42,24 @@ export function WalletPage({ user }) {
       setWallet(walletRes.wallet)
       setDeposits(depositsRes.deposits || [])
       setWithdrawals(withdrawalsRes.withdrawals || [])
-
-      // Load deposit info if wallet is connected (either backend wallet or TON Connect wallet)
-      if (walletRes.wallet || tonWallet) {
-        try {
-          const info = await tonApi.getDepositInfo()
-          setDepositInfo(info)
-        } catch (err) {
-          console.error('Failed to fetch deposit info:', err)
-        }
-      }
     } catch (err) {
       console.error('Failed to fetch wallet data:', err)
-    } finally {
-      setLoading(false)
     }
-  }, [tonWallet])
+
+    // Always try to load deposit info (in separate try/catch)
+    try {
+      console.log('Loading deposit info...')
+      const info = await tonApi.getDepositInfo()
+      console.log('Deposit info loaded:', info)
+      setDepositInfo(info)
+    } catch (err) {
+      console.error('Failed to fetch deposit info:', err)
+      // Set error object to stop loading indicator
+      setDepositInfo({ error: err.message || 'Failed to load deposit info' })
+    }
+
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -290,7 +293,21 @@ export function WalletPage({ user }) {
               <p className="text-white/60">Loading deposit information...</p>
             </Card>
           )}
-          {activeTab === 'deposit' && depositInfo && (
+          {activeTab === 'deposit' && depositInfo && (depositInfo.error || !depositInfo.platform_address) && (
+            <Card className="text-center py-8">
+              <div className="text-4xl mb-2">⚠️</div>
+              <p className="text-danger mb-2">Failed to load deposit info</p>
+              <p className="text-white/60 text-sm">{depositInfo.error || 'Platform wallet not configured'}</p>
+              <p className="text-white/40 text-xs mt-4">Contact support or check server configuration</p>
+              <button
+                onClick={() => fetchData()}
+                className="mt-4 px-4 py-2 bg-primary rounded-lg hover:bg-primary/80 transition-colors"
+              >
+                Retry
+              </button>
+            </Card>
+          )}
+          {activeTab === 'deposit' && depositInfo && !depositInfo.error && depositInfo.platform_address && (
             <Card>
               <CardTitle className="mb-4">Buy Coins</CardTitle>
               <div className="space-y-4">

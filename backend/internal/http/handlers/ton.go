@@ -186,6 +186,12 @@ func (h *TonHandler) GetDepositInfo(c *gin.Context) {
 		return
 	}
 
+	// Check if platform wallet is configured
+	if h.PlatformWallet == "" {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "platform wallet not configured"})
+		return
+	}
+
 	// Generate unique memo for this user
 	memo := fmt.Sprintf("deposit_%d", userID)
 
