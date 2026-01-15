@@ -46,33 +46,44 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
   }
 
   const handleInviteFriends = async () => {
-    if (!referralLink?.link) return
+    if (!referralLink?.link) {
+      console.error('No referral link available:', referralLink)
+      return
+    }
 
-    const shareText = `Join me in CryptoGames! Use my invite link and we both get bonus gems!\n${referralLink.link}`
+    const shareText = 'Join me in CryptoGames! Use my invite link and we both get bonus gems!'
+    const tg = window.Telegram?.WebApp
 
-    // Try native share API first (works well on mobile)
-    if (navigator.share) {
+    // Try Telegram's native share method first
+    if (tg?.shareToStory) {
+      // For newer Telegram versions with story sharing
       try {
-        await navigator.share({
-          title: 'CryptoGames Invite',
-          text: shareText,
-        })
+        tg.shareToStory(referralLink.link, { text: shareText })
         return
-      } catch (err) {
-        // User cancelled or share failed, continue to fallback
-        if (err.name !== 'AbortError') {
-          console.error('Share failed:', err)
-        }
+      } catch (e) {
+        console.log('shareToStory not available')
       }
     }
 
-    // Fallback to Telegram share URL
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent('Join me in CryptoGames! Use my invite link and we both get bonus gems!')}`
-
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(shareUrl)
+    // Use sendData to trigger bot action or just copy link
+    if (tg) {
+      // Copy to clipboard and show Telegram popup
+      try {
+        await navigator.clipboard.writeText(referralLink.link)
+        tg.showAlert('Link copied! Share it with your friends to earn gems!')
+      } catch (e) {
+        // Fallback: show link in popup
+        tg.showAlert(`Your invite link:\n${referralLink.link}`)
+      }
     } else {
-      window.open(shareUrl, '_blank')
+      // Non-Telegram fallback
+      try {
+        await navigator.clipboard.writeText(referralLink.link)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (e) {
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent(shareText)}`, '_blank')
+      }
     }
   }
 
