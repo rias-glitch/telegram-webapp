@@ -125,31 +125,48 @@ export function GamesPage({ user, setUser, addGems }) {
       )}
 
       <div className="grid gap-3">
-        {games.map((game) => (
+        {games.map((game, index) => (
           <Card
             key={game.id}
             onClick={() => handleGameClick(game)}
-            className="flex items-center gap-4"
+            className={`flex items-center gap-4 group ${game.isHot ? 'border-orange-500/20' : ''}`}
+            style={{ animationDelay: `${index * 50}ms` }}
           >
-            <div className="text-4xl">{game.icon}</div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <CardTitle>{game.title}</CardTitle>
+            {/* Icon with glow effect */}
+            <div className="relative">
+              <div className="text-4xl group-hover:scale-110 transition-transform duration-300">
+                {game.icon}
+              </div>
+              {game.isHot && (
+                <div className="absolute inset-0 bg-orange-500/20 blur-xl rounded-full" />
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="group-hover:text-primary transition-colors">
+                  {game.title}
+                </CardTitle>
                 {game.isHot && (
-                  <span className="text-xs bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">
-                    HOT
+                  <span className="text-[10px] bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wide shadow-lg shadow-orange-500/20">
+                    Hot
                   </span>
                 )}
                 {game.hasPvP && (
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-medium border border-primary/20">
                     PvP
                   </span>
                 )}
               </div>
-              <p className="text-white/60 text-sm">{game.description}</p>
+              <p className="text-white/50 text-sm mt-0.5">{game.description}</p>
             </div>
-            <div className="bg-primary/20 text-primary px-3 py-1 rounded-full font-bold">
-              {game.multiplier}
+
+            {/* Multiplier badge */}
+            <div className="flex flex-col items-end">
+              <div className="bg-gradient-to-r from-primary/20 to-secondary/20 text-primary px-3 py-1.5 rounded-xl font-bold text-sm border border-primary/10">
+                {game.multiplier}
+              </div>
             </div>
           </Card>
         ))}

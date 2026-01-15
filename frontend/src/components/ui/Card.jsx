@@ -1,7 +1,22 @@
-export function Card({ children, className = '', onClick, ...props }) {
+export function Card({ children, className = '', onClick, variant = 'default', glow = false, ...props }) {
+  const variants = {
+    default: 'glass',
+    light: 'glass-light',
+    dark: 'glass-dark',
+    gradient: 'gradient-border',
+  }
+
+  const baseClasses = `
+    rounded-2xl p-4
+    ${variants[variant]}
+    ${onClick ? 'cursor-pointer card-hover active:scale-[0.98]' : ''}
+    ${glow ? 'shadow-glow' : ''}
+    transition-all duration-300
+  `
+
   return (
     <div
-      className={`glass rounded-2xl p-4 ${onClick ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''} ${className}`}
+      className={`${baseClasses} ${className}`}
       onClick={onClick}
       {...props}
     >
@@ -18,9 +33,9 @@ export function CardHeader({ children, className = '' }) {
   )
 }
 
-export function CardTitle({ children, className = '' }) {
+export function CardTitle({ children, className = '', gradient = false }) {
   return (
-    <h3 className={`text-lg font-semibold ${className}`}>
+    <h3 className={`text-lg font-semibold ${gradient ? 'gradient-text' : ''} ${className}`}>
       {children}
     </h3>
   )
@@ -29,6 +44,14 @@ export function CardTitle({ children, className = '' }) {
 export function CardContent({ children, className = '' }) {
   return (
     <div className={className}>
+      {children}
+    </div>
+  )
+}
+
+export function CardFooter({ children, className = '' }) {
+  return (
+    <div className={`mt-4 pt-4 border-t border-white/5 ${className}`}>
       {children}
     </div>
   )
