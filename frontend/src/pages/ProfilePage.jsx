@@ -45,6 +45,25 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
     }
   }
 
+  const handleShare = () => {
+    if (!referralLink?.link) {
+      alert('Referral link not loaded')
+      return
+    }
+
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent('Join me in CryptoGames! Use my invite link and we both get bonus gems!')}`
+
+    // Try multiple methods
+    const tg = window.Telegram?.WebApp
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(shareUrl)
+    } else if (tg?.openLink) {
+      tg.openLink(shareUrl)
+    } else {
+      window.location.href = shareUrl
+    }
+  }
+
   const handleCopyLink = async () => {
     if (!referralLink?.link) return
 
@@ -121,21 +140,13 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
         </div>
 
         <div className="space-y-2">
-          {referralLink?.link ? (
-            <a
-              href={`https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent('Join me in CryptoGames! Use my invite link and we both get bonus gems!')}`}
-              className="w-full py-3 px-4 rounded-xl font-medium text-center block bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-            >
-              Share Invite Link
-            </a>
-          ) : (
-            <Button
-              disabled={true}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500"
-            >
-              {loadingReferral ? 'Loading...' : 'Share Invite Link'}
-            </Button>
-          )}
+          <Button
+            onClick={handleShare}
+            disabled={loadingReferral || !referralLink?.link}
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {loadingReferral ? 'Loading...' : 'Share Invite Link'}
+          </Button>
 
           {referralLink?.link && (
             <button
