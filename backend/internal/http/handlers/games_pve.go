@@ -547,7 +547,7 @@ func (h *Handler) CoinFlipProFlip(c *gin.Context) {
 			"multiplier":   g.Multiplier,
 			"flip_history": g.FlipHistory,
 		}
-		go h.RecordGameResult(userID, domain.GameTypeCoinFlip, domain.GameModePVE, result, g.Bet, g.GetProfit(), details)
+		go h.RecordGameResult(userID, domain.GameTypeCoinflip, domain.GameModePVE, result, g.Bet, g.GetProfit(), details)
 
 		// Record transaction
 		meta := details
@@ -594,7 +594,7 @@ func (h *Handler) CoinFlipProCashOut(c *gin.Context) {
 		"multiplier":   g.Multiplier,
 		"flip_history": g.FlipHistory,
 	}
-	go h.RecordGameResult(userID, domain.GameTypeCoinFlip, domain.GameModePVE, domain.GameResultWin, g.Bet, g.GetProfit(), details)
+	go h.RecordGameResult(userID, domain.GameTypeCoinflip, domain.GameModePVE, domain.GameResultWin, g.Bet, g.GetProfit(), details)
 
 	// Record transaction
 	meta := details
