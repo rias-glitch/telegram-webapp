@@ -45,48 +45,6 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
     }
   }
 
-  const handleInviteFriends = async () => {
-    if (!referralLink?.link) {
-      console.error('No referral link available:', referralLink)
-      return
-    }
-
-    const shareText = 'Join me in CryptoGames! Use my invite link and we both get bonus gems!'
-    const tg = window.Telegram?.WebApp
-
-    // Try Telegram's native share method first
-    if (tg?.shareToStory) {
-      // For newer Telegram versions with story sharing
-      try {
-        tg.shareToStory(referralLink.link, { text: shareText })
-        return
-      } catch (e) {
-        console.log('shareToStory not available')
-      }
-    }
-
-    // Use sendData to trigger bot action or just copy link
-    if (tg) {
-      // Copy to clipboard and show Telegram popup
-      try {
-        await navigator.clipboard.writeText(referralLink.link)
-        tg.showAlert('Link copied! Share it with your friends to earn gems!')
-      } catch (e) {
-        // Fallback: show link in popup
-        tg.showAlert(`Your invite link:\n${referralLink.link}`)
-      }
-    } else {
-      // Non-Telegram fallback
-      try {
-        await navigator.clipboard.writeText(referralLink.link)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      } catch (e) {
-        window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent(shareText)}`, '_blank')
-      }
-    }
-  }
-
   const handleCopyLink = async () => {
     if (!referralLink?.link) return
 
@@ -163,13 +121,21 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
         </div>
 
         <div className="space-y-2">
-          <Button
-            onClick={handleInviteFriends}
-            disabled={loadingReferral || !referralLink}
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-          >
-            {loadingReferral ? 'Loading...' : 'Share Invite Link'}
-          </Button>
+          {referralLink?.link ? (
+            <a
+              href={`https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent('Join me in CryptoGames! Use my invite link and we both get bonus gems!')}`}
+              className="w-full py-3 px-4 rounded-xl font-medium text-center block bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+            >
+              Share Invite Link
+            </a>
+          ) : (
+            <Button
+              disabled={true}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500"
+            >
+              {loadingReferral ? 'Loading...' : 'Share Invite Link'}
+            </Button>
+          )}
 
           {referralLink?.link && (
             <button
