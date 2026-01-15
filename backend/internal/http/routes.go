@@ -139,6 +139,13 @@ func registerAPIRoutes(api *gin.RouterGroup, h *handlers.Handler, authRateLimit 
 	api.GET("/game/mines-pro/state", middleware.JWT(), h.MinesProState)
 	api.GET("/game/mines-pro/info", h.MinesProInfo)
 
+	// CoinFlip Pro (multi-round coinflip) with game rate limiting
+	api.POST("/game/coinflip-pro/start", middleware.JWT(), gameRL, h.CoinFlipProStart)
+	api.POST("/game/coinflip-pro/flip", middleware.JWT(), gameRL, h.CoinFlipProFlip)
+	api.POST("/game/coinflip-pro/cashout", middleware.JWT(), h.CoinFlipProCashOut)
+	api.GET("/game/coinflip-pro/state", middleware.JWT(), h.CoinFlipProState)
+	api.GET("/game/coinflip-pro/info", h.CoinFlipProInfo)
+
 	// Game limits info endpoint
 	api.GET("/game/limits", h.GameLimits)
 

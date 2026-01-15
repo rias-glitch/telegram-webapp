@@ -485,3 +485,166 @@ func (h *Handler) MinesProInfo(c *gin.Context) {
 	})
 }
 
+// ============ COINFLIP PRO ============
+
+// CoinFlipProStartRequest represents the start game request
+type CoinFlipProStartRequest struct {
+	Bet int64 `json:"bet" binding:"required,min=1"`
+}
+
+// CoinFlipProStart starts a new CoinFlip Pro game
+func (h *Handler) CoinFlipProStart(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	var req CoinFlipProStartRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+	g, err := h.CoinFlipProService.StartGame(ctx, userID, req.Bet)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, g.GetState())
+}
+
+// CoinFlipProFlip performs a coin flip in the active game
+func (h *Handler) CoinFlipProFlip(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	win, g, err := h.CoinFlipProService.Flip(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	state := g.GetState()
+	state["flip_win"] = win
+
+	// Record game if finished
+	if !g.IsActive() {
+		var result domain.GameResult
+		if g.Status == game.CoinFlipProStatusCashedOut {
+			result = domain.GameResultWin
+		} else {
+			result = domain.GameResultLose
+		}
+		details := map[string]interface{}{
+			"rounds":       g.CurrentRound,
+			"multiplier":   g.Multiplier,
+			"flip_history": g.FlipHistory,
+		}
+		go h.RecordGameResult(userID, domain.GameTypeCoinFlip, domain.GameModePVE, result, g.Bet, g.GetProfit(), details)
+
+		// Record transaction
+		meta := details
+		meta["bet"] = g.Bet
+		meta["win_amount"] = g.WinAmount
+		txRecord := &domain.Transaction{
+			UserID: userID,
+			Type:   "coinflip_pro",
+			Amount: g.GetProfit(),
+			Meta:   meta,
+		}
+		_ = h.TransactionRepo.Create(ctx, txRecord)
+	}
+
+	// Get current balance
+	user, _ := repository.NewUserRepository(h.DB).GetByID(ctx, userID)
+	var balance int64
+	if user != nil {
+		balance = user.Gems
+	}
+	state["gems"] = balance
+
+	c.JSON(http.StatusOK, state)
+}
+
+// CoinFlipProCashOut cashes out the active game
+func (h *Handler) CoinFlipProCashOut(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	g, err := h.CoinFlipProService.CashOut(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Record game history
+	details := map[string]interface{}{
+		"rounds":       g.CurrentRound,
+		"multiplier":   g.Multiplier,
+		"flip_history": g.FlipHistory,
+	}
+	go h.RecordGameResult(userID, domain.GameTypeCoinFlip, domain.GameModePVE, domain.GameResultWin, g.Bet, g.GetProfit(), details)
+
+	// Record transaction
+	meta := details
+	meta["bet"] = g.Bet
+	meta["win_amount"] = g.WinAmount
+	txRecord := &domain.Transaction{
+		UserID: userID,
+		Type:   "coinflip_pro",
+		Amount: g.GetProfit(),
+		Meta:   meta,
+	}
+	_ = h.TransactionRepo.Create(ctx, txRecord)
+
+	// Get current balance
+	user, _ := repository.NewUserRepository(h.DB).GetByID(ctx, userID)
+	var balance int64
+	if user != nil {
+		balance = user.Gems
+	}
+
+	state := g.GetState()
+	state["gems"] = balance
+
+	c.JSON(http.StatusOK, state)
+}
+
+// CoinFlipProState returns the current game state
+func (h *Handler) CoinFlipProState(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	g := h.CoinFlipProService.GetActiveGame(userID)
+	if g == nil {
+		c.JSON(http.StatusOK, gin.H{"active": false})
+		return
+	}
+
+	state := g.GetState()
+	state["active"] = true
+	c.JSON(http.StatusOK, state)
+}
+
+// CoinFlipProInfo returns game configuration
+func (h *Handler) CoinFlipProInfo(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"max_rounds":  game.CoinFlipProMaxRounds,
+		"multipliers": game.GetCoinFlipProMultiplierTable(),
+	})
+}
+

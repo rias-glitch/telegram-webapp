@@ -62,3 +62,24 @@ export async function getMinesProState() {
 export async function getMinesProInfo() {
   return api.get('/game/mines-pro/info')
 }
+
+// CoinFlip Pro game (multi-round)
+export async function startCoinFlipPro(bet) {
+  return api.post('/game/coinflip-pro/start', { bet })
+}
+
+export async function flipCoinFlipPro() {
+  return api.post('/game/coinflip-pro/flip', {})
+}
+
+export async function cashoutCoinFlipPro() {
+  return api.post('/game/coinflip-pro/cashout', {})
+}
+
+export async function getCoinFlipProState() {
+  return api.get('/game/coinflip-pro/state')
+}
+
+export async function getCoinFlipProInfo() {
+  return api.get('/game/coinflip-pro/info')
+}

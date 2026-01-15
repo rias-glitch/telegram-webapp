@@ -3,18 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardTitle, Button } from '../components/ui'
 import { api } from '../api/client'
 import { CoinFlipGame } from '../components/games/CoinFlipGame'
+import { CoinFlipProGame } from '../components/games/CoinFlipProGame'
 import { WheelGame } from '../components/games/WheelGame'
 import { DiceGame } from '../components/games/DiceGame'
 import { MinesProGame } from '../components/games/MinesProGame'
 
 const games = [
   {
-    id: 'coinflip',
+    id: 'coinflip-pro',
     icon: '🪙',
-    title: 'Coin Flip',
-    description: '50/50 chance to double',
-    multiplier: 'x2',
+    title: 'Coin Flip Pro',
+    description: '10 rounds, up to x100',
+    multiplier: 'x100',
     navigateTo: null,
+    isHot: true,
   },
   {
     id: 'rps',
@@ -133,6 +135,11 @@ export function GamesPage({ user, setUser, addGems }) {
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <CardTitle>{game.title}</CardTitle>
+                {game.isHot && (
+                  <span className="text-xs bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">
+                    HOT
+                  </span>
+                )}
                 {game.hasPvP && (
                   <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
                     PvP
@@ -149,6 +156,14 @@ export function GamesPage({ user, setUser, addGems }) {
       </div>
 
       {/* PvE Games */}
+      {activeGame === 'coinflip-pro' && (
+        <CoinFlipProGame
+          user={user}
+          onClose={handleClose}
+          onResult={handleGameResult}
+        />
+      )}
+
       {activeGame === 'coinflip' && (
         <CoinFlipGame
           user={user}

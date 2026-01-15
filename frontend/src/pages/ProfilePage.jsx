@@ -32,14 +32,23 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
   const loadReferralData = async () => {
     try {
       setLoadingReferral(true)
-      const [linkData, statsData] = await Promise.all([
-        getReferralLink(),
-        getReferralStats()
+
+      // Add timeout to prevent infinite loading
+      const timeout = (ms) => new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), ms)
+      )
+
+      const [linkData, statsData] = await Promise.race([
+        Promise.all([getReferralLink(), getReferralStats()]),
+        timeout(10000) // 10 second timeout
       ])
+
       setReferralLink(linkData)
-      setReferralStats(statsData.stats)
+      setReferralStats(statsData?.stats || null)
     } catch (err) {
       console.error('Failed to load referral data:', err)
+      // Set empty state so button shows error state
+      setReferralLink({ error: err.message })
     } finally {
       setLoadingReferral(false)
     }
@@ -48,8 +57,21 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
   const handleShare = () => {
     const tg = window.Telegram?.WebApp
 
+    // Check for errors or missing link
+    if (referralLink?.error) {
+      const msg = `Error: ${referralLink.error}. Try refreshing the page.`
+      if (tg?.showAlert) {
+        tg.showAlert(msg)
+      } else {
+        alert(msg)
+      }
+      return
+    }
+
     if (!referralLink?.link) {
-      const msg = `Link not loaded. State: ${JSON.stringify(referralLink)}, Loading: ${loadingReferral}`
+      const msg = loadingReferral
+        ? 'Still loading referral link...'
+        : 'Failed to load referral link. Try refreshing.'
       if (tg?.showAlert) {
         tg.showAlert(msg)
       } else {
