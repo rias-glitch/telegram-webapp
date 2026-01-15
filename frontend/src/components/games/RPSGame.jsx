@@ -11,8 +11,8 @@ const MOVES = [
   { id: 'scissors', icon: '✂️', label: 'Scissors' },
 ]
 
-export function RPSGame({ user, onClose, onResult }) {
-  const [bet, setBet] = useState(10)
+export function RPSGame({ user, onClose, onResult, embedded = false }) {
+  const [bet, setBet] = useState(100)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [selectedMove, setSelectedMove] = useState(null)
@@ -60,10 +60,9 @@ export function RPSGame({ user, onClose, onResult }) {
 
   const getMoveIcon = (move) => MOVES.find(m => m.id === move)?.icon || '❓'
 
-  return (
-    <Modal isOpen={true} onClose={onClose} title="Rock Paper Scissors">
-      <div className="space-y-6">
-        {/* Battle display */}
+  const gameContent = (
+    <div className="space-y-6">
+      {/* Battle display */}
         {result && (
           <div className="flex items-center justify-center gap-4 py-4">
             <div className="text-center">
@@ -148,24 +147,33 @@ export function RPSGame({ user, onClose, onResult }) {
           </>
         )}
 
-        {/* Actions */}
-        {result && (
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={onClose} className="flex-1">
-              Close
-            </Button>
-            <Button onClick={playAgain} className="flex-1">
-              Play Again
-            </Button>
-          </div>
-        )}
-
-        {!result && (
-          <Button variant="secondary" onClick={onClose} className="w-full">
-            Cancel
+      {/* Actions */}
+      {result && (
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={onClose} className="flex-1">
+            {embedded ? 'Back' : 'Close'}
           </Button>
-        )}
-      </div>
+          <Button onClick={playAgain} className="flex-1">
+            Play Again
+          </Button>
+        </div>
+      )}
+
+      {!result && !embedded && (
+        <Button variant="secondary" onClick={onClose} className="w-full">
+          Cancel
+        </Button>
+      )}
+    </div>
+  )
+
+  if (embedded) {
+    return gameContent
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Rock Paper Scissors">
+      {gameContent}
     </Modal>
   )
 }

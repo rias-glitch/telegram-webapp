@@ -152,6 +152,18 @@ func registerAPIRoutes(api *gin.RouterGroup, h *handlers.Handler, authRateLimit 
 	api.GET("/me/quests", middleware.JWT(), h.GetMyQuests)
 	api.POST("/quests/:id/claim", middleware.JWT(), h.ClaimQuestReward)
 
+	// Referral system
+	referralRepo := repository.NewReferralRepository(h.DB)
+	referralHandler := handlers.NewReferralHandler(referralRepo)
+	referral := api.Group("/referral")
+	referral.Use(middleware.JWT())
+	{
+		referral.GET("/code", referralHandler.GetReferralCode)
+		referral.GET("/link", referralHandler.GetReferralLink)
+		referral.GET("/stats", referralHandler.GetReferralStats)
+		referral.POST("/apply", referralHandler.ApplyReferralCode)
+	}
+
 	// TON Connect & Payments
 	tonHandler := handlers.NewTonHandler(h)
 	ton := api.Group("/ton")

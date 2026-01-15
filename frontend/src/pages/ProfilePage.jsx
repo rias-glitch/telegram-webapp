@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardTitle, Button } from '../components/ui'
 import { claimQuestReward } from '../api/quests'
+import { getReferralLink, getReferralStats } from '../api/referral'
 
 const GAME_ICONS = {
   coinflip: '🪙',
@@ -18,10 +19,57 @@ const RESULT_COLORS = {
 export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
   const [activeTab, setActiveTab] = useState('stats')
   const [claiming, setClaiming] = useState(null)
+  const [referralLink, setReferralLink] = useState(null)
+  const [referralStats, setReferralStats] = useState(null)
+  const [loadingReferral, setLoadingReferral] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     fetchProfile()
+    loadReferralData()
   }, [fetchProfile])
+
+  const loadReferralData = async () => {
+    try {
+      setLoadingReferral(true)
+      const [linkData, statsData] = await Promise.all([
+        getReferralLink(),
+        getReferralStats()
+      ])
+      setReferralLink(linkData)
+      setReferralStats(statsData.stats)
+    } catch (err) {
+      console.error('Failed to load referral data:', err)
+    } finally {
+      setLoadingReferral(false)
+    }
+  }
+
+  const handleInviteFriends = async () => {
+    if (!referralLink?.link) return
+
+    // Try to use Telegram WebApp share
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      const shareText = `Join me in CryptoGames! Use my invite link and we both get bonus gems!`
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent(shareText)}`
+      window.Telegram.WebApp.openTelegramLink(shareUrl)
+    } else {
+      // Fallback to copy link
+      handleCopyLink()
+    }
+  }
+
+  const handleCopyLink = async () => {
+    if (!referralLink?.link) return
+
+    try {
+      await navigator.clipboard.writeText(referralLink.link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
 
   const handleClaim = async (userQuestId) => {
     try {
@@ -56,9 +104,60 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
         {user?.username && (
           <p className="text-white/60">@{user.username}</p>
         )}
-        <div className="flex items-center justify-center gap-2 mt-3">
-          <span className="text-2xl">💎</span>
-          <span className="text-2xl font-bold">{user?.gems?.toLocaleString() || 0}</span>
+        <div className="flex items-center justify-center gap-4 mt-3">
+          <div className="flex items-center gap-1">
+            <span className="text-xl">💎</span>
+            <span className="text-xl font-bold">{user?.gems?.toLocaleString() || 0}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-xl">🪙</span>
+            <span className="text-xl font-bold">{user?.coins?.toLocaleString() || 0}</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Invite Friends Section */}
+      <Card className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🎁</span>
+            <div>
+              <h3 className="font-bold">Invite Friends</h3>
+              <p className="text-white/60 text-sm">Get 500 gems per friend!</p>
+            </div>
+          </div>
+          {referralStats && (
+            <div className="text-right">
+              <div className="text-sm text-white/60">Invited</div>
+              <div className="font-bold text-lg">{referralStats.total_referrals || 0}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Button
+            onClick={handleInviteFriends}
+            disabled={loadingReferral || !referralLink}
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {loadingReferral ? 'Loading...' : 'Share Invite Link'}
+          </Button>
+
+          {referralLink?.link && (
+            <button
+              onClick={handleCopyLink}
+              className="w-full py-2 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              <span className="truncate max-w-[200px]">{referralLink.code}</span>
+              <span>{copied ? '✓' : '📋'}</span>
+            </button>
+          )}
+
+          {referralStats?.total_earned > 0 && (
+            <div className="text-center text-sm text-white/60">
+              Total earned: <span className="text-success font-semibold">{referralStats.total_earned} 💎</span>
+            </div>
+          )}
         </div>
       </Card>
 

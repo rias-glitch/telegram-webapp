@@ -1,12 +1,8 @@
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardTitle, Button } from '../components/ui'
 import { api } from '../api/client'
 import { CoinFlipGame } from '../components/games/CoinFlipGame'
-import { RPSGame } from '../components/games/RPSGame'
-import { MinesGame } from '../components/games/MinesGame'
-import { GameModeSelector } from '../components/games/GameModeSelector'
-import { PvPRPSGame } from '../components/games/PvPRPSGame'
-import { PvPMinesGame } from '../components/games/PvPMinesGame'
 import { WheelGame } from '../components/games/WheelGame'
 import { DiceGame } from '../components/games/DiceGame'
 import { MinesProGame } from '../components/games/MinesProGame'
@@ -18,22 +14,24 @@ const games = [
     title: 'Coin Flip',
     description: '50/50 chance to double',
     multiplier: 'x2',
-    hasPvP: false,
+    navigateTo: null,
   },
   {
     id: 'rps',
     icon: '✊',
     title: 'Rock Paper Scissors',
-    description: 'Beat the opponent',
+    description: 'PvE & PvP modes',
     multiplier: 'x2',
+    navigateTo: '/rps',
     hasPvP: true,
   },
   {
     id: 'mines',
     icon: '💣',
     title: 'Mines',
-    description: 'Avoid the bombs',
+    description: 'PvE & PvP modes',
     multiplier: 'x2',
+    navigateTo: '/mines',
     hasPvP: true,
   },
   {
@@ -42,7 +40,7 @@ const games = [
     title: 'Wheel of Fortune',
     description: 'Spin to win up to 10x',
     multiplier: 'x10',
-    hasPvP: false,
+    navigateTo: null,
   },
   {
     id: 'dice',
@@ -50,7 +48,7 @@ const games = [
     title: 'Dice',
     description: 'Predict the roll',
     multiplier: 'x100',
-    hasPvP: false,
+    navigateTo: null,
   },
   {
     id: 'mines-pro',
@@ -58,14 +56,13 @@ const games = [
     title: 'Mines Pro',
     description: 'Multi-round mines',
     multiplier: 'x24',
-    hasPvP: false,
+    navigateTo: null,
   },
 ]
 
 export function GamesPage({ user, setUser, addGems }) {
-  const [selectedGame, setSelectedGame] = useState(null)
+  const navigate = useNavigate()
   const [activeGame, setActiveGame] = useState(null)
-  const [gameMode, setGameMode] = useState(null) // 'pve' | 'pvp'
   const [claimingBonus, setClaimingBonus] = useState(false)
 
   const handleClaimBonus = useCallback(async () => {
@@ -86,23 +83,15 @@ export function GamesPage({ user, setUser, addGems }) {
   }, [claimingBonus, setUser])
 
   const handleGameClick = (game) => {
-    if (game.hasPvP) {
-      setSelectedGame(game)
+    if (game.navigateTo) {
+      navigate(game.navigateTo)
     } else {
       setActiveGame(game.id)
     }
   }
 
-  const handleModeSelect = (mode) => {
-    setGameMode(mode)
-    setActiveGame(selectedGame.id)
-    setSelectedGame(null)
-  }
-
   const handleClose = () => {
     setActiveGame(null)
-    setSelectedGame(null)
-    setGameMode(null)
   }
 
   const handleGameResult = (newGems) => {
@@ -159,16 +148,6 @@ export function GamesPage({ user, setUser, addGems }) {
         ))}
       </div>
 
-      {/* Mode selector for PvP games */}
-      {selectedGame && (
-        <GameModeSelector
-          isOpen={true}
-          onClose={() => setSelectedGame(null)}
-          onSelect={handleModeSelect}
-          gameTitle={selectedGame.title}
-        />
-      )}
-
       {/* PvE Games */}
       {activeGame === 'coinflip' && (
         <CoinFlipGame
@@ -178,40 +157,6 @@ export function GamesPage({ user, setUser, addGems }) {
         />
       )}
 
-      {activeGame === 'rps' && gameMode === 'pve' && (
-        <RPSGame
-          user={user}
-          onClose={handleClose}
-          onResult={handleGameResult}
-        />
-      )}
-
-      {activeGame === 'mines' && gameMode === 'pve' && (
-        <MinesGame
-          user={user}
-          onClose={handleClose}
-          onResult={handleGameResult}
-        />
-      )}
-
-      {/* PvP Games */}
-      {activeGame === 'rps' && gameMode === 'pvp' && (
-        <PvPRPSGame
-          user={user}
-          onClose={handleClose}
-          onResult={handleGameResult}
-        />
-      )}
-
-      {activeGame === 'mines' && gameMode === 'pvp' && (
-        <PvPMinesGame
-          user={user}
-          onClose={handleClose}
-          onResult={handleGameResult}
-        />
-      )}
-
-      {/* New PvE Games */}
       {activeGame === 'wheel' && (
         <WheelGame
           user={user}

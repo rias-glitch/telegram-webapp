@@ -1,11 +1,11 @@
 package ws
 
 const (
-	// client → server
+	// client - server
 	MsgMove = "move"
 	MsgPing = "ping"
 
-	// server → client
+	// server - client
 	MsgMatchFound = "match_found"
 	MsgResult     = "result"
 	MsgError      = "error"

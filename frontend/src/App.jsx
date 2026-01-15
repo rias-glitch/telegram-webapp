@@ -7,6 +7,8 @@ import { CasesPage } from './pages/CasesPage'
 import { TopPage } from './pages/TopPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { WalletPage } from './pages/WalletPage'
+import { RPSPage } from './pages/RPSPage'
+import { MinesPage } from './pages/MinesPage'
 
 function App() {
   const { user, loading, error, setUser } = useAuth()
@@ -77,6 +79,14 @@ function App() {
         <Route
           path="/wallet"
           element={<WalletPage user={user} />}
+        />
+        <Route
+          path="/rps"
+          element={<RPSPage user={user} setUser={setUser} />}
+        />
+        <Route
+          path="/mines"
+          element={<MinesPage user={user} setUser={setUser} />}
         />
       </Routes>
     </Layout>

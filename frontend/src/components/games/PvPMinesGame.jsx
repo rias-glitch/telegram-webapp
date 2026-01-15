@@ -7,7 +7,7 @@ const GRID_SIZE = 12
 const MINES_COUNT = 4
 const TURN_TIMEOUT = 10 // seconds
 
-export function PvPMinesGame({ user, onClose, onResult }) {
+export function PvPMinesGame({ user, onClose, onResult, embedded = false, initialBet = 0, initialCurrency = 'gems' }) {
   const {
     status,
     opponent,
@@ -33,9 +33,9 @@ export function PvPMinesGame({ user, onClose, onResult }) {
   const timerRef = useRef(null)
 
   useEffect(() => {
-    connect(0)
+    connect(initialBet, initialCurrency)
     return () => disconnect()
-  }, [])
+  }, [initialBet, initialCurrency])
 
   useEffect(() => {
     if (status === 'playing' || status === 'matched') {
@@ -177,8 +177,10 @@ export function PvPMinesGame({ user, onClose, onResult }) {
     setTimer(TURN_TIMEOUT)
     stopTimer()
     disconnect()
-    setTimeout(() => connect(0), 100)
+    setTimeout(() => connect(initialBet, initialCurrency), 100)
   }
+
+  const currencyIcon = initialCurrency === 'coins' ? '🪙' : '💎'
 
   const getResultText = () => {
     if (!result?.payload) return ''
@@ -217,9 +219,8 @@ export function PvPMinesGame({ user, onClose, onResult }) {
   const timerProgress = (timer / TURN_TIMEOUT) * 100
   const timerColor = timer > 5 ? 'bg-green-500' : timer > 2 ? 'bg-yellow-500' : 'bg-red-500'
 
-  return (
-    <Modal isOpen={true} onClose={onClose} title="PvP Mines">
-      <div className="space-y-4">
+  const gameContent = (
+    <div className="space-y-4">
         {/* Opponent info */}
         {opponent && phase !== 'connecting' && (
           <div className="flex items-center justify-center gap-3 p-3 bg-white/5 rounded-xl">
@@ -439,24 +440,40 @@ export function PvPMinesGame({ user, onClose, onResult }) {
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          {phase === 'finished' ? (
-            <>
-              <Button variant="secondary" onClick={onClose} className="flex-1">
-                Close
-              </Button>
-              <Button onClick={handlePlayAgain} className="flex-1">
-                Play Again
-              </Button>
-            </>
-          ) : (
-            <Button variant="secondary" onClick={onClose} className="w-full">
-              Cancel
-            </Button>
-          )}
+      {/* Bet info */}
+      {initialBet > 0 && (
+        <div className="text-center text-white/60 text-sm">
+          Bet: {initialBet} {currencyIcon}
         </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-3 pt-2">
+        {phase === 'finished' ? (
+          <>
+            <Button variant="secondary" onClick={onClose} className="flex-1">
+              {embedded ? 'Back' : 'Close'}
+            </Button>
+            <Button onClick={handlePlayAgain} className="flex-1">
+              Play Again
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" onClick={onClose} className="w-full">
+            Cancel
+          </Button>
+        )}
       </div>
+    </div>
+  )
+
+  if (embedded) {
+    return gameContent
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="PvP Mines">
+      {gameContent}
     </Modal>
   )
 }

@@ -162,6 +162,18 @@ func (b *AdminBot) handleCommand(msg *tgbotapi.Message) {
 	case "broadcast":
 		response = b.handleBroadcast(ctx, msg.CommandArguments())
 
+	case "usergames":
+		response = b.handleUserGames(ctx, msg.CommandArguments())
+
+	case "topusergames":
+		response = b.handleTopUserGames(ctx, msg.CommandArguments())
+
+	case "addcoins":
+		response = b.handleAddCoins(ctx, msg.CommandArguments())
+
+	case "addadmin":
+		response = b.handleAddAdmin(msg.CommandArguments())
+
 	default:
 		response = "Unknown command. Use /help for available commands."
 	}
@@ -182,13 +194,19 @@ func (b *AdminBot) helpMessage() string {
 /stats - Platform statistics
 /top [limit] - Top users by gems
 /games - Recent games
+/usergames &lt;tg_id&gt; - User's last 10 games (gems + coins)
+/topusergames [limit] - Top users by game wins
 
 <b>User Management:</b>
 /user &lt;id|tg_id|username&gt; - User info
 /addgems &lt;user_id&gt; &lt;amount&gt; - Add gems
+/addcoins &lt;tg_id&gt; &lt;amount&gt; - Add coins
 /setgems &lt;user_id&gt; &lt;amount&gt; - Set gems
 /ban &lt;user_id&gt; - Ban user
 /unban &lt;user_id&gt; - Unban user
+
+<b>Admin Management:</b>
+/addadmin &lt;tg_id&gt; - Add new admin
 
 <b>Withdrawals:</b>
 /withdrawals - Pending withdrawals
@@ -218,10 +236,15 @@ func (b *AdminBot) handleStats(ctx context.Context) string {
 
 <b>Economy:</b>
 • Total gems: %d
+• Total coins: %d
 • Total wagered: %d
 • Wagered today: %d
-• House profit: %d
-• Profit today: %d
+
+<b>Coins Purchased:</b>
+• Today: %d
+• Week: %d
+• Month: %d
+• All time: %d
 
 <b>Payments:</b>
 • Total deposited: %d gems
@@ -233,10 +256,13 @@ func (b *AdminBot) handleStats(ctx context.Context) string {
 		stats.TotalGamesPlayed,
 		stats.GamesToday,
 		stats.TotalGems,
+		stats.TotalCoins,
 		stats.TotalWagered,
 		stats.WageredToday,
-		stats.HouseProfit,
-		stats.ProfitToday,
+		stats.CoinsPurchasedToday,
+		stats.CoinsPurchasedWeek,
+		stats.CoinsPurchasedMonth,
+		stats.CoinsPurchasedTotal,
 		stats.TotalDeposited,
 		stats.TotalWithdrawn,
 		stats.PendingWithdraws,
@@ -526,6 +552,151 @@ func (b *AdminBot) handleBroadcast(ctx context.Context, message string) string {
 
 	b.log.Info("broadcast complete", "sent", sent, "failed", failed)
 	return fmt.Sprintf("Broadcast complete. Sent: %d, Failed: %d", sent, failed)
+}
+
+func (b *AdminBot) handleUserGames(ctx context.Context, args string) string {
+	if args == "" {
+		return "Usage: /usergames <tg_id>"
+	}
+
+	tgID, err := strconv.ParseInt(args, 10, 64)
+	if err != nil {
+		return "Invalid Telegram ID"
+	}
+
+	// Get user info first
+	user, err := b.adminService.GetUserByTgID(ctx, tgID)
+	if err != nil {
+		return fmt.Sprintf("User not found: %v", err)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>Games for @%s (TG: %d)</b>\n\n", user.Username, tgID))
+
+	// Get gems games
+	gemsGames, err := b.adminService.GetUserGamesByTgID(ctx, tgID, "gems", 10)
+	if err != nil {
+		sb.WriteString(fmt.Sprintf("Error getting gems games: %v\n", err))
+	} else {
+		sb.WriteString("<b>Last 10 Gems Games:</b>\n")
+		if len(gemsGames) == 0 {
+			sb.WriteString("No games found\n")
+		} else {
+			for _, g := range gemsGames {
+				emoji := "🎮"
+				if g.Result == "win" {
+					emoji = "✅"
+				} else if g.Result == "lose" {
+					emoji = "❌"
+				}
+				sb.WriteString(fmt.Sprintf("%s %s | bet: %d | %+d\n", emoji, g.GameType, g.BetAmount, g.WinAmount))
+			}
+		}
+	}
+
+	sb.WriteString("\n")
+
+	// Get coins games
+	coinsGames, err := b.adminService.GetUserGamesByTgID(ctx, tgID, "coins", 10)
+	if err != nil {
+		sb.WriteString(fmt.Sprintf("Error getting coins games: %v\n", err))
+	} else {
+		sb.WriteString("<b>Last 10 Coins Games:</b>\n")
+		if len(coinsGames) == 0 {
+			sb.WriteString("No games found\n")
+		} else {
+			for _, g := range coinsGames {
+				emoji := "🎮"
+				if g.Result == "win" {
+					emoji = "✅"
+				} else if g.Result == "lose" {
+					emoji = "❌"
+				}
+				sb.WriteString(fmt.Sprintf("%s %s | bet: %d | %+d\n", emoji, g.GameType, g.BetAmount, g.WinAmount))
+			}
+		}
+	}
+
+	return sb.String()
+}
+
+func (b *AdminBot) handleTopUserGames(ctx context.Context, args string) string {
+	limit := 20
+	if args != "" {
+		if n, err := strconv.Atoi(args); err == nil && n > 0 && n <= 50 {
+			limit = n
+		}
+	}
+
+	stats, err := b.adminService.GetTopUsersByWins(ctx, limit)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	if len(stats) == 0 {
+		return "No users with wins found"
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>Top %d Users by Game Wins</b>\n\n", limit))
+	sb.WriteString("User | Gems Wins | Coins Wins\n")
+	sb.WriteString("─────────────────────────\n")
+
+	for i, s := range stats {
+		username := s.Username
+		if username == "" {
+			username = fmt.Sprintf("id:%d", s.UserID)
+		}
+		sb.WriteString(fmt.Sprintf("%d. @%s | %d | %d\n", i+1, username, s.GemsWins, s.CoinsWins))
+	}
+
+	return sb.String()
+}
+
+func (b *AdminBot) handleAddCoins(ctx context.Context, args string) string {
+	parts := strings.Fields(args)
+	if len(parts) != 2 {
+		return "Usage: /addcoins <tg_id> <amount>"
+	}
+
+	tgID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return "Invalid Telegram ID"
+	}
+
+	amount, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return "Invalid amount"
+	}
+
+	newBalance, err := b.adminService.AddUserCoins(ctx, tgID, amount)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	return fmt.Sprintf("Added %d coins to user (TG: %d). New balance: %d coins", amount, tgID, newBalance)
+}
+
+func (b *AdminBot) handleAddAdmin(args string) string {
+	if args == "" {
+		return "Usage: /addadmin <tg_id>"
+	}
+
+	tgID, err := strconv.ParseInt(args, 10, 64)
+	if err != nil {
+		return "Invalid Telegram ID"
+	}
+
+	// Check if already admin
+	if b.isAdmin(tgID) {
+		return fmt.Sprintf("User %d is already an admin", tgID)
+	}
+
+	// Add to admin list (runtime only)
+	b.adminIDs = append(b.adminIDs, tgID)
+	b.log.Info("added new admin", "tg_id", tgID)
+
+	return fmt.Sprintf("Added %d as admin. Note: This is runtime only and will be reset on restart. Add to ADMIN_TELEGRAM_IDS env for persistence.", tgID)
 }
 
 // SendNotification sends a notification to a specific user

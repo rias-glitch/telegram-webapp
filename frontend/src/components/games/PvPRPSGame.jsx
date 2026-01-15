@@ -11,7 +11,7 @@ const MOVES = [
 
 const TURN_TIMEOUT = 20 // seconds
 
-export function PvPRPSGame({ user, onClose, onResult }) {
+export function PvPRPSGame({ user, onClose, onResult, embedded = false, initialBet = 0, initialCurrency = 'gems' }) {
   const {
     status,
     opponent,
@@ -27,17 +27,19 @@ export function PvPRPSGame({ user, onClose, onResult }) {
   const [waiting, setWaiting] = useState(false)
   const [round, setRound] = useState(1)
   const [timer, setTimer] = useState(TURN_TIMEOUT)
+  const [bet, setBet] = useState(initialBet)
+  const [currency, setCurrency] = useState(initialCurrency)
   const timerRef = useRef(null)
 
   useEffect(() => {
     // Auto connect when component mounts
-    connect(0) // bet = 0 for now
+    connect(initialBet, initialCurrency)
 
     return () => {
       disconnect()
       stopTimer()
     }
-  }, [])
+  }, [initialBet, initialCurrency])
 
   useEffect(() => {
     if (result) {
@@ -105,7 +107,7 @@ export function PvPRPSGame({ user, onClose, onResult }) {
     setTimer(TURN_TIMEOUT)
     stopTimer()
     disconnect()
-    setTimeout(() => connect(0), 100)
+    setTimeout(() => connect(initialBet, initialCurrency), 100)
   }
 
   const getMoveIcon = (move) => MOVES.find(m => m.id === move)?.icon || '❓'
@@ -137,9 +139,10 @@ export function PvPRPSGame({ user, onClose, onResult }) {
   const timerProgress = (timer / TURN_TIMEOUT) * 100
   const timerColor = timer > 10 ? 'bg-green-500' : timer > 5 ? 'bg-yellow-500' : 'bg-red-500'
 
-  return (
-    <Modal isOpen={true} onClose={onClose} title="PvP Rock Paper Scissors">
-      <div className="space-y-4">
+  const currencyIcon = currency === 'coins' ? '🪙' : '💎'
+
+  const gameContent = (
+    <div className="space-y-4">
         {/* Opponent info */}
         {opponent && status !== 'connecting' && status !== 'waiting' && (
           <div className="flex items-center justify-center gap-3 p-3 bg-white/5 rounded-xl">
@@ -270,24 +273,40 @@ export function PvPRPSGame({ user, onClose, onResult }) {
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          {result ? (
-            <>
-              <Button variant="secondary" onClick={onClose} className="flex-1">
-                Close
-              </Button>
-              <Button onClick={handlePlayAgain} className="flex-1">
-                Play Again
-              </Button>
-            </>
-          ) : (
-            <Button variant="secondary" onClick={onClose} className="w-full">
-              Cancel
-            </Button>
-          )}
+      {/* Bet info */}
+      {initialBet > 0 && (
+        <div className="text-center text-white/60 text-sm">
+          Bet: {initialBet} {currencyIcon}
         </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-3 pt-2">
+        {result ? (
+          <>
+            <Button variant="secondary" onClick={onClose} className="flex-1">
+              {embedded ? 'Back' : 'Close'}
+            </Button>
+            <Button onClick={handlePlayAgain} className="flex-1">
+              Play Again
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" onClick={onClose} className="w-full">
+            Cancel
+          </Button>
+        )}
       </div>
+    </div>
+  )
+
+  if (embedded) {
+    return gameContent
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="PvP Rock Paper Scissors">
+      {gameContent}
     </Modal>
   )
 }

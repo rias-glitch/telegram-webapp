@@ -13,7 +13,7 @@ export function useWebSocket(gameType = 'rps') {
   const wsRef = useRef(null)
   const handlersRef = useRef({})
 
-  const connect = useCallback((betAmount) => {
+  const connect = useCallback((betAmount, currency = 'gems') => {
     const token = getToken()
     if (!token) {
       console.error('No auth token')
@@ -23,10 +23,10 @@ export function useWebSocket(gameType = 'rps') {
     let wsUrl
     const wsBase = import.meta.env.VITE_WS_URL
     if (wsBase) {
-      wsUrl = `${wsBase}/ws?token=${token}&bet=${betAmount}&game=${gameType}`
+      wsUrl = `${wsBase}/ws?token=${token}&bet=${betAmount}&game=${gameType}&currency=${currency}`
     } else {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      wsUrl = `${protocol}//${window.location.host}/ws?token=${token}&bet=${betAmount}&game=${gameType}`
+      wsUrl = `${protocol}//${window.location.host}/ws?token=${token}&bet=${betAmount}&game=${gameType}&currency=${currency}`
     }
 
     setStatus('connecting')

@@ -7,8 +7,8 @@ import { playMines } from '../../api/games'
 const BET_PRESETS = [10, 50, 100, 500]
 const GRID_SIZE = 12
 
-export function MinesGame({ user, onClose, onResult }) {
-  const [bet, setBet] = useState(10)
+export function MinesGame({ user, onClose, onResult, embedded = false }) {
+  const [bet, setBet] = useState(100)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [selectedCell, setSelectedCell] = useState(null)
@@ -58,9 +58,8 @@ export function MinesGame({ user, onClose, onResult }) {
     return 'bg-white/5'
   }
 
-  return (
-    <Modal isOpen={true} onClose={onClose} title="Mines">
-      <div className="space-y-6">
+  const gameContent = (
+    <div className="space-y-6">
         {/* Result */}
         {result && !result.error && (
           <div className="text-center space-y-2">
@@ -130,24 +129,33 @@ export function MinesGame({ user, onClose, onResult }) {
           </>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-3">
-          {result ? (
-            <>
-              <Button variant="secondary" onClick={onClose} className="flex-1">
-                Close
-              </Button>
-              <Button onClick={playAgain} className="flex-1">
-                Play Again
-              </Button>
-            </>
-          ) : (
-            <Button variant="secondary" onClick={onClose} className="w-full">
-              Cancel
+      {/* Actions */}
+      <div className="flex gap-3">
+        {result ? (
+          <>
+            <Button variant="secondary" onClick={onClose} className="flex-1">
+              {embedded ? 'Back' : 'Close'}
             </Button>
-          )}
-        </div>
+            <Button onClick={playAgain} className="flex-1">
+              Play Again
+            </Button>
+          </>
+        ) : !embedded ? (
+          <Button variant="secondary" onClick={onClose} className="w-full">
+            Cancel
+          </Button>
+        ) : null}
       </div>
+    </div>
+  )
+
+  if (embedded) {
+    return gameContent
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Mines">
+      {gameContent}
     </Modal>
   )
 }

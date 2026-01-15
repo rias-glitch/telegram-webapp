@@ -20,19 +20,23 @@ func NewAdminService(db *pgxpool.Pool) *AdminService {
 
 // Stats represents platform statistics
 type Stats struct {
-	TotalUsers       int64   `json:"total_users"`
-	ActiveUsersToday int64   `json:"active_users_today"`
-	ActiveUsersWeek  int64   `json:"active_users_week"`
-	TotalGamesPlayed int64   `json:"total_games_played"`
-	GamesToday       int64   `json:"games_today"`
-	TotalGems        int64   `json:"total_gems"`        // Total gems in circulation
-	TotalWagered     int64   `json:"total_wagered"`     // All-time wagered
-	WageredToday     int64   `json:"wagered_today"`     // Today's wagered
-	HouseProfit      int64   `json:"house_profit"`      // House profit (wagered - won)
-	ProfitToday      int64   `json:"profit_today"`
-	PendingWithdraws int     `json:"pending_withdraws"` // Pending withdrawal requests
-	TotalDeposited   int64   `json:"total_deposited"`   // Total TON deposited (in gems)
-	TotalWithdrawn   int64   `json:"total_withdrawn"`   // Total withdrawn (in gems)
+	TotalUsers       int64 `json:"total_users"`
+	ActiveUsersToday int64 `json:"active_users_today"`
+	ActiveUsersWeek  int64 `json:"active_users_week"`
+	TotalGamesPlayed int64 `json:"total_games_played"`
+	GamesToday       int64 `json:"games_today"`
+	TotalGems        int64 `json:"total_gems"`        // Total gems in circulation
+	TotalCoins       int64 `json:"total_coins"`       // Total coins in circulation
+	TotalWagered     int64 `json:"total_wagered"`     // All-time wagered
+	WageredToday     int64 `json:"wagered_today"`     // Today's wagered
+	PendingWithdraws int   `json:"pending_withdraws"` // Pending withdrawal requests
+	TotalDeposited   int64 `json:"total_deposited"`   // Total TON deposited (in gems)
+	TotalWithdrawn   int64 `json:"total_withdrawn"`   // Total withdrawn (in gems)
+	// Coins purchased stats
+	CoinsPurchasedToday int64 `json:"coins_purchased_today"`
+	CoinsPurchasedWeek  int64 `json:"coins_purchased_week"`
+	CoinsPurchasedMonth int64 `json:"coins_purchased_month"`
+	CoinsPurchasedTotal int64 `json:"coins_purchased_total"`
 }
 
 // GetStats returns platform statistics
@@ -40,6 +44,7 @@ func (s *AdminService) GetStats(ctx context.Context) (*Stats, error) {
 	stats := &Stats{}
 	today := time.Now().Truncate(24 * time.Hour)
 	weekAgo := today.Add(-7 * 24 * time.Hour)
+	monthAgo := today.Add(-30 * 24 * time.Hour)
 
 	// Total users
 	_ = s.db.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&stats.TotalUsers)
@@ -65,6 +70,9 @@ func (s *AdminService) GetStats(ctx context.Context) (*Stats, error) {
 	// Total gems in circulation
 	_ = s.db.QueryRow(ctx, `SELECT COALESCE(SUM(gems), 0) FROM users`).Scan(&stats.TotalGems)
 
+	// Total coins in circulation
+	_ = s.db.QueryRow(ctx, `SELECT COALESCE(SUM(coins), 0) FROM users`).Scan(&stats.TotalCoins)
+
 	// Total wagered (all time)
 	_ = s.db.QueryRow(ctx, `
 		SELECT COALESCE(SUM(bet_amount), 0) FROM game_history
@@ -74,21 +82,6 @@ func (s *AdminService) GetStats(ctx context.Context) (*Stats, error) {
 	_ = s.db.QueryRow(ctx, `
 		SELECT COALESCE(SUM(bet_amount), 0) FROM game_history WHERE created_at >= $1
 	`, today).Scan(&stats.WageredToday)
-
-	// House profit (wagered - won)
-	var totalWon int64
-	_ = s.db.QueryRow(ctx, `
-		SELECT COALESCE(SUM(CASE WHEN win_amount > 0 THEN win_amount ELSE 0 END), 0) FROM game_history
-	`).Scan(&totalWon)
-	stats.HouseProfit = stats.TotalWagered - totalWon
-
-	// Profit today
-	var wonToday int64
-	_ = s.db.QueryRow(ctx, `
-		SELECT COALESCE(SUM(CASE WHEN win_amount > 0 THEN win_amount ELSE 0 END), 0)
-		FROM game_history WHERE created_at >= $1
-	`, today).Scan(&wonToday)
-	stats.ProfitToday = stats.WageredToday - wonToday
 
 	// Pending withdrawals
 	_ = s.db.QueryRow(ctx, `
@@ -104,6 +97,23 @@ func (s *AdminService) GetStats(ctx context.Context) (*Stats, error) {
 	_ = s.db.QueryRow(ctx, `
 		SELECT COALESCE(SUM(gems_amount), 0) FROM withdrawals WHERE status IN ('sent', 'completed')
 	`).Scan(&stats.TotalWithdrawn)
+
+	// Coins purchased stats (from deposits table)
+	_ = s.db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(coins_credited), 0) FROM deposits WHERE status = 'confirmed' AND created_at >= $1
+	`, today).Scan(&stats.CoinsPurchasedToday)
+
+	_ = s.db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(coins_credited), 0) FROM deposits WHERE status = 'confirmed' AND created_at >= $1
+	`, weekAgo).Scan(&stats.CoinsPurchasedWeek)
+
+	_ = s.db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(coins_credited), 0) FROM deposits WHERE status = 'confirmed' AND created_at >= $1
+	`, monthAgo).Scan(&stats.CoinsPurchasedMonth)
+
+	_ = s.db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(coins_credited), 0) FROM deposits WHERE status = 'confirmed'
+	`).Scan(&stats.CoinsPurchasedTotal)
 
 	return stats, nil
 }
@@ -350,4 +360,108 @@ func (s *AdminService) GetAllUserTgIDs(ctx context.Context) ([]int64, error) {
 	}
 
 	return ids, nil
+}
+
+// GameRecord represents a single game record
+type GameRecord struct {
+	ID        int64     `json:"id"`
+	GameType  string    `json:"game_type"`
+	Mode      string    `json:"mode"`
+	Result    string    `json:"result"`
+	BetAmount int64     `json:"bet_amount"`
+	WinAmount int64     `json:"win_amount"`
+	Currency  string    `json:"currency"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// GetUserGamesByTgID returns last games for user by telegram ID
+func (s *AdminService) GetUserGamesByTgID(ctx context.Context, tgID int64, currency string, limit int) ([]GameRecord, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT gh.id, gh.game_type, gh.mode, gh.result, gh.bet_amount, gh.win_amount,
+		       COALESCE(gh.currency, 'gems') as currency, gh.created_at
+		FROM game_history gh
+		JOIN users u ON u.id = gh.user_id
+		WHERE u.tg_id = $1 AND COALESCE(gh.currency, 'gems') = $2
+		ORDER BY gh.created_at DESC
+		LIMIT $3
+	`, tgID, currency, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var games []GameRecord
+	for rows.Next() {
+		var g GameRecord
+		if err := rows.Scan(&g.ID, &g.GameType, &g.Mode, &g.Result, &g.BetAmount, &g.WinAmount, &g.Currency, &g.CreatedAt); err != nil {
+			continue
+		}
+		games = append(games, g)
+	}
+	return games, nil
+}
+
+// UserGameStats represents user wins statistics
+type UserGameStats struct {
+	UserID    int64  `json:"user_id"`
+	TgID      int64  `json:"tg_id"`
+	Username  string `json:"username"`
+	GemsWins  int64  `json:"gems_wins"`
+	CoinsWins int64  `json:"coins_wins"`
+}
+
+// GetTopUsersByWins returns users sorted by wins
+func (s *AdminService) GetTopUsersByWins(ctx context.Context, limit int) ([]UserGameStats, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT
+			u.id,
+			u.tg_id,
+			COALESCE(u.username, u.first_name) as username,
+			COALESCE(SUM(CASE WHEN gh.result = 'win' AND COALESCE(gh.currency, 'gems') = 'gems' THEN 1 ELSE 0 END), 0) as gems_wins,
+			COALESCE(SUM(CASE WHEN gh.result = 'win' AND gh.currency = 'coins' THEN 1 ELSE 0 END), 0) as coins_wins
+		FROM users u
+		LEFT JOIN game_history gh ON gh.user_id = u.id
+		GROUP BY u.id, u.tg_id, u.username, u.first_name
+		HAVING COALESCE(SUM(CASE WHEN gh.result = 'win' THEN 1 ELSE 0 END), 0) > 0
+		ORDER BY (COALESCE(SUM(CASE WHEN gh.result = 'win' AND COALESCE(gh.currency, 'gems') = 'gems' THEN 1 ELSE 0 END), 0) +
+		          COALESCE(SUM(CASE WHEN gh.result = 'win' AND gh.currency = 'coins' THEN 1 ELSE 0 END), 0)) DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []UserGameStats
+	for rows.Next() {
+		var s UserGameStats
+		if err := rows.Scan(&s.UserID, &s.TgID, &s.Username, &s.GemsWins, &s.CoinsWins); err != nil {
+			continue
+		}
+		stats = append(stats, s)
+	}
+	return stats, nil
+}
+
+// AddUserCoins adds coins to user's balance by tg_id
+func (s *AdminService) AddUserCoins(ctx context.Context, tgID int64, amount int64) (int64, error) {
+	var newBalance int64
+	err := s.db.QueryRow(ctx, `
+		UPDATE users SET coins = coins + $1 WHERE tg_id = $2 RETURNING coins
+	`, amount, tgID).Scan(&newBalance)
+	return newBalance, err
+}
+
+// GetUserByTgID returns user info by telegram ID
+func (s *AdminService) GetUserByTgID(ctx context.Context, tgID int64) (*UserInfo, error) {
+	var user UserInfo
+	err := s.db.QueryRow(ctx, `
+		SELECT id, tg_id, username, first_name, gems, created_at
+		FROM users
+		WHERE tg_id = $1
+	`, tgID).Scan(&user.ID, &user.TgID, &user.Username, &user.FirstName, &user.Gems, &user.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
