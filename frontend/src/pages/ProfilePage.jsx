@@ -48,14 +48,31 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
   const handleInviteFriends = async () => {
     if (!referralLink?.link) return
 
-    // Try to use Telegram WebApp share
-    if (window.Telegram?.WebApp?.openTelegramLink) {
-      const shareText = `Join me in CryptoGames! Use my invite link and we both get bonus gems!`
-      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent(shareText)}`
-      window.Telegram.WebApp.openTelegramLink(shareUrl)
+    const shareText = `Join me in CryptoGames! Use my invite link and we both get bonus gems!\n${referralLink.link}`
+
+    // Try native share API first (works well on mobile)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'CryptoGames Invite',
+          text: shareText,
+        })
+        return
+      } catch (err) {
+        // User cancelled or share failed, continue to fallback
+        if (err.name !== 'AbortError') {
+          console.error('Share failed:', err)
+        }
+      }
+    }
+
+    // Fallback to Telegram share URL
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink.link)}&text=${encodeURIComponent('Join me in CryptoGames! Use my invite link and we both get bonus gems!')}`
+
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(shareUrl)
     } else {
-      // Fallback to copy link
-      handleCopyLink()
+      window.open(shareUrl, '_blank')
     }
   }
 

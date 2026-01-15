@@ -14,6 +14,7 @@ type Config struct {
 	AppPort          string
 	DatabaseURL      string
 	BotToken         string
+	BotUsername      string
 	JWTSecret        string
 	AdminTelegramIDs []int64 // Telegram user IDs for admin access
 	AdminBotEnabled  bool
@@ -42,6 +43,11 @@ func Load() *Config {
 	botToken := os.Getenv("BOT_TOKEN")
 	if botToken == "" {
 		logger.Fatal("BOT_TOKEN is not set")
+	}
+
+	botUsername := os.Getenv("BOT_USERNAME")
+	if botUsername == "" {
+		botUsername = "CryptoGamesBot" // Default fallback
 	}
 
 	port := os.Getenv("APP_PORT")
@@ -96,6 +102,7 @@ func Load() *Config {
 		AppPort:          port,
 		DatabaseURL:      dbURL,
 		BotToken:         botToken,
+		BotUsername:      botUsername,
 		JWTSecret:        jwtSecret,
 		AdminTelegramIDs: adminIDs,
 		AdminBotEnabled:  adminBotEnabled,

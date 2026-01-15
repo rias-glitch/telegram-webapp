@@ -154,7 +154,11 @@ func registerAPIRoutes(api *gin.RouterGroup, h *handlers.Handler, authRateLimit 
 
 	// Referral system
 	referralRepo := repository.NewReferralRepository(h.DB)
-	referralHandler := handlers.NewReferralHandler(referralRepo)
+	botUsername := os.Getenv("BOT_USERNAME")
+	if botUsername == "" {
+		botUsername = "CryptoGamesBot"
+	}
+	referralHandler := handlers.NewReferralHandler(referralRepo, botUsername)
 	referral := api.Group("/referral")
 	referral.Use(middleware.JWT())
 	{
