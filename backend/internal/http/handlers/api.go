@@ -48,6 +48,7 @@ func (h *Handler) MyProfile(c *gin.Context) {
 		"first_name": user.FirstName,
 		"created_at": user.CreatedAt,
 		"gems":       user.Gems,
+		"coins":      user.Coins,
 		"history":    history,
 	})
 }

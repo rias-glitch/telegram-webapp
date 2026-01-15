@@ -120,15 +120,16 @@ func (s *AdminService) GetStats(ctx context.Context) (*Stats, error) {
 
 // UserInfo represents user information for admin
 type UserInfo struct {
-	ID        int64     `json:"id"`
-	TgID      int64     `json:"tg_id"`
-	Username  string    `json:"username"`
-	FirstName string    `json:"first_name"`
-	Gems      int64     `json:"gems"`
-	CreatedAt time.Time `json:"created_at"`
-	GamesPlayed int64   `json:"games_played"`
-	TotalWon    int64   `json:"total_won"`
-	TotalLost   int64   `json:"total_lost"`
+	ID          int64     `json:"id"`
+	TgID        int64     `json:"tg_id"`
+	Username    string    `json:"username"`
+	FirstName   string    `json:"first_name"`
+	Gems        int64     `json:"gems"`
+	Coins       int64     `json:"coins"`
+	CreatedAt   time.Time `json:"created_at"`
+	GamesPlayed int64     `json:"games_played"`
+	TotalWon    int64     `json:"total_won"`
+	TotalLost   int64     `json:"total_lost"`
 }
 
 // GetUser returns user info by ID or telegram ID
@@ -137,10 +138,10 @@ func (s *AdminService) GetUser(ctx context.Context, identifier string) (*UserInf
 
 	// Try to find by ID first, then by tg_id, then by username
 	err := s.db.QueryRow(ctx, `
-		SELECT id, tg_id, username, first_name, gems, created_at
+		SELECT id, tg_id, username, first_name, gems, coins, created_at
 		FROM users
 		WHERE id::text = $1 OR tg_id::text = $1 OR LOWER(username) = LOWER($1)
-	`, identifier).Scan(&user.ID, &user.TgID, &user.Username, &user.FirstName, &user.Gems, &user.CreatedAt)
+	`, identifier).Scan(&user.ID, &user.TgID, &user.Username, &user.FirstName, &user.Gems, &user.Coins, &user.CreatedAt)
 
 	if err != nil {
 		return nil, err

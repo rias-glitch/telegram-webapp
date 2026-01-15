@@ -286,6 +286,7 @@ func (b *AdminBot) handleUser(ctx context.Context, args string) string {
 • Username: @%s
 • Name: %s
 • Gems: %d
+• Coins: %d
 • Games played: %d
 • Total won: %d
 • Total lost: %d
@@ -295,6 +296,7 @@ func (b *AdminBot) handleUser(ctx context.Context, args string) string {
 		user.Username,
 		user.FirstName,
 		user.Gems,
+		user.Coins,
 		user.GamesPlayed,
 		user.TotalWon,
 		user.TotalLost,
