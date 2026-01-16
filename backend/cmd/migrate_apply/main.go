@@ -31,6 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("read migrations dir: %v", err)
 	}
+	var hasErrors bool
 	for _, f := range files {
 		name := f.Name()
 		if !*apply {
@@ -39,11 +40,18 @@ func main() {
 		}
 		b, err := os.ReadFile(filepath.Join(migDir, name))
 		if err != nil {
-			log.Fatalf("read file %s: %v", name, err)
+			log.Printf("ERROR: read file %s: %v", name, err)
+			hasErrors = true
+			continue
 		}
 		if _, err := db.Exec(context.Background(), string(b)); err != nil {
-			log.Fatalf("failed to apply %s: %v", name, err)
+			log.Printf("ERROR: failed to apply %s: %v", name, err)
+			hasErrors = true
+			continue
 		}
 		fmt.Printf("applied %s\n", name)
+	}
+	if hasErrors {
+		log.Println("Some migrations failed - check errors above")
 	}
 }
