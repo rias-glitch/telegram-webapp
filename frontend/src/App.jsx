@@ -13,14 +13,17 @@ import { MinesPage } from './pages/MinesPage'
 
 function App() {
   const { user, loading, error, setUser } = useAuth()
-  const { games, stats, quests, fetchProfile, addGems } = useProfile(user, setUser)
+  const { games, stats, quests, fetchProfile, addGems } = useProfile(
+    user,
+    setUser
+  )
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4 animate-pulse-custom">🎮</div>
-          <p className="text-white/60">Loading...</p>
+      <div className='min-h-screen flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='text-4xl mb-4 animate-pulse-custom'>🍆🍆🍆</div>
+          <p className='text-white/60'>Загрузка...</p>
         </div>
       </div>
     )
@@ -28,11 +31,11 @@ function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="text-4xl mb-4">❌</div>
-          <p className="text-danger mb-2">Failed to connect</p>
-          <p className="text-white/60 text-sm">{error}</p>
+      <div className='min-h-screen flex items-center justify-center p-4'>
+        <div className='text-center'>
+          <div className='text-4xl mb-4'>❌</div>
+          <p className='text-danger mb-2'>Failed to connect</p>
+          <p className='text-white/60 text-sm'>{error}</p>
         </div>
       </div>
     )
@@ -42,35 +45,24 @@ function App() {
     <Layout user={user}>
       <Routes>
         <Route
-          path="/"
+          path='/'
           element={
-            <GamesPage
-              user={user}
-              setUser={setUser}
-              addGems={addGems}
-            />
+            <GamesPage user={user} setUser={setUser} addGems={addGems} />
           }
         />
         <Route
-          path="/cases"
+          path='/cases'
           element={
-            <CasesPage
-              user={user}
-              setUser={setUser}
-              addGems={addGems}
-            />
+            <CasesPage user={user} setUser={setUser} addGems={addGems} />
           }
         />
+        <Route path='/top' element={<TopPage user={user} />} />
         <Route
-          path="/top"
-          element={<TopPage user={user} />}
-        />
-        <Route
-          path="/upgrade"
+          path='/upgrade'
           element={<UpgradePage user={user} setUser={setUser} />}
         />
         <Route
-          path="/profile"
+          path='/profile'
           element={
             <ProfilePage
               user={user}
@@ -81,16 +73,13 @@ function App() {
             />
           }
         />
+        <Route path='/wallet' element={<WalletPage user={user} />} />
         <Route
-          path="/wallet"
-          element={<WalletPage user={user} />}
-        />
-        <Route
-          path="/rps"
+          path='/rps'
           element={<RPSPage user={user} setUser={setUser} />}
         />
         <Route
-          path="/mines"
+          path='/mines'
           element={<MinesPage user={user} setUser={setUser} />}
         />
       </Routes>
