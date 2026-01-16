@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Modal } from '../ui/Overlay'
 import { Button, Input } from '../ui'
 import { playWheel, getWheelInfo } from '../../api/games'
@@ -23,7 +23,8 @@ export function WheelGame({ user, onClose, onResult }) {
   const [spinning, setSpinning] = useState(false)
   const [result, setResult] = useState(null)
   const [segments, setSegments] = useState(DEFAULT_SEGMENTS)
-  const [displayIndex, setDisplayIndex] = useState(0)
+  const [offset, setOffset] = useState(0)
+  const reelRef = useRef(null)
 
   useEffect(() => {
     getWheelInfo().then(data => {
@@ -47,31 +48,38 @@ export function WheelGame({ user, onClose, onResult }) {
       const winIndex = segments.findIndex(s => s.id === response.segment_id)
       const finalIndex = winIndex >= 0 ? winIndex : 0
 
-      // Animate through segments
-      const totalSpins = 3 * segments.length + finalIndex // 3 full rotations + final position
-      let currentSpin = 0
+      // Calculate animation
+      const segmentWidth = 120 // Width of each segment in pixels
+      const visibleSegments = 3
+      const totalSpins = 3 // Full rotations
+      const totalDistance = (totalSpins * segments.length * segmentWidth) + (finalIndex * segmentWidth)
 
-      const spinInterval = setInterval(() => {
-        currentSpin++
-        setDisplayIndex(currentSpin % segments.length)
+      // Animate the reel
+      const duration = 3000 // 3 seconds
+      const startTime = Date.now()
+      const startOffset = offset
 
-        if (currentSpin >= totalSpins) {
-          clearInterval(spinInterval)
-          setDisplayIndex(finalIndex)
+      const animate = () => {
+        const elapsed = Date.now() - startTime
+        const progress = Math.min(elapsed / duration, 1)
+
+        // Easing function (ease out cubic)
+        const easeOut = 1 - Math.pow(1 - progress, 3)
+
+        const currentOffset = startOffset + (totalDistance * easeOut)
+        setOffset(currentOffset)
+
+        if (progress < 1) {
+          requestAnimationFrame(animate)
+        } else {
+          // Animation complete
           setSpinning(false)
           setResult(response)
           onResult(response.gems)
         }
-      }, 100 - Math.min(currentSpin * 2, 70)) // Speed up then slow down
+      }
 
-      // Fallback timeout
-      setTimeout(() => {
-        clearInterval(spinInterval)
-        setDisplayIndex(finalIndex)
-        setSpinning(false)
-        setResult(response)
-        onResult(response.gems)
-      }, 4000)
+      requestAnimationFrame(animate)
 
     } catch (err) {
       setSpinning(false)
@@ -83,27 +91,54 @@ export function WheelGame({ user, onClose, onResult }) {
 
   const playAgain = () => {
     setResult(null)
-    setDisplayIndex(0)
   }
 
-  const currentSegment = segments[displayIndex] || segments[0]
+  // Create extended segments array for seamless looping
+  const extendedSegments = [...segments, ...segments, ...segments, ...segments, ...segments]
 
   return (
     <Modal isOpen={true} onClose={onClose} title="Wheel of Fortune">
       <div className="space-y-6">
-        {/* Slot machine display */}
+        {/* Slot machine reel */}
         <div className="relative">
           {/* Frame */}
-          <div className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-2xl p-3 shadow-lg">
-            {/* Main display */}
-            <div
-              className="h-32 rounded-xl flex items-center justify-center text-5xl font-bold transition-all duration-100"
-              style={{
-                backgroundColor: currentSegment.color,
-                textShadow: '0 2px 8px rgba(0,0,0,0.5)',
-              }}
-            >
-              {currentSegment.label}
+          <div className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-2xl p-2 shadow-lg">
+            {/* Reel container with mask */}
+            <div className="relative overflow-hidden rounded-xl bg-gray-900" style={{ height: '100px' }}>
+              {/* Center indicator */}
+              <div className="absolute inset-y-0 left-1/2 w-1 bg-yellow-400 z-20 transform -translate-x-1/2" />
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 z-20">
+                <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-yellow-400" />
+              </div>
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 z-20">
+                <div className="w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-yellow-400" />
+              </div>
+
+              {/* Gradient overlays for depth effect */}
+              <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-gray-900 to-transparent z-10 pointer-events-none" />
+              <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-gray-900 to-transparent z-10 pointer-events-none" />
+
+              {/* Scrolling reel */}
+              <div
+                ref={reelRef}
+                className="flex items-center h-full transition-none"
+                style={{
+                  transform: `translateX(calc(50% - 60px - ${offset % (segments.length * 120)}px))`,
+                }}
+              >
+                {extendedSegments.map((seg, i) => (
+                  <div
+                    key={`${seg.id}-${i}`}
+                    className="flex-shrink-0 w-[120px] h-full flex items-center justify-center text-2xl font-bold border-x border-gray-700"
+                    style={{
+                      backgroundColor: seg.color,
+                      textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                    }}
+                  >
+                    {seg.label}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -112,7 +147,7 @@ export function WheelGame({ user, onClose, onResult }) {
             {[...Array(8)].map((_, i) => (
               <div
                 key={i}
-                className={`w-3 h-3 rounded-full transition-all`}
+                className="w-3 h-3 rounded-full transition-all"
                 style={{
                   backgroundColor: spinning
                     ? ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'][i % 4]

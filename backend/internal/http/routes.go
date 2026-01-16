@@ -15,8 +15,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Global reference to ton handler for setting callbacks
+var globalTonHandler *handlers.TonHandler
+
 func RegisterRoutes(r *gin.Engine, db *pgxpool.Pool, botToken string, version string) {
 	RegisterRoutesWithConfig(r, db, botToken, version, nil)
+}
+
+// SetWithdrawalNotifyCallback sets the callback for withdrawal notifications
+func SetWithdrawalNotifyCallback(callback handlers.WithdrawalNotifyFunc) {
+	if globalTonHandler != nil {
+		globalTonHandler.OnWithdrawalCreate = callback
+	}
 }
 
 func RegisterRoutesWithConfig(r *gin.Engine, db *pgxpool.Pool, botToken string, version string, cfg *config.Config) {
@@ -192,6 +202,7 @@ func registerAPIRoutes(api *gin.RouterGroup, h *handlers.Handler, authRateLimit 
 
 	// TON Connect & Payments
 	tonHandler := handlers.NewTonHandler(h)
+	globalTonHandler = tonHandler // Store for callback setup
 	ton := api.Group("/ton")
 	{
 		// Wallet management

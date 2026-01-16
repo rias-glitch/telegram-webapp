@@ -86,6 +86,9 @@ func main() {
 		} else {
 			go adminBot.Start()
 			log.Info("admin bot started", "admin_ids", cfg.AdminTelegramIDs)
+
+			// Set withdrawal notification callback
+			httpServer.SetWithdrawalNotifyCallback(adminBot.NotifyAdminsNewWithdrawal)
 		}
 	}
 

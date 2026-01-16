@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,17 +15,21 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// WithdrawalNotifyFunc is a callback for notifying about new withdrawals
+type WithdrawalNotifyFunc func(ctx context.Context, withdrawalID int64)
+
 // TonHandler handles TON-related endpoints
 type TonHandler struct {
-	DB             *repository.WalletRepository
-	DepositRepo    *repository.DepositRepository
-	WithdrawalRepo *repository.WithdrawalRepository
-	ReferralRepo   *repository.ReferralRepository
-	UserRepo       *repository.UserRepository
-	TonClient      *ton.Client
-	PlatformWallet string
-	AllowedDomain  string
-	MainDB         *Handler
+	DB                 *repository.WalletRepository
+	DepositRepo        *repository.DepositRepository
+	WithdrawalRepo     *repository.WithdrawalRepository
+	ReferralRepo       *repository.ReferralRepository
+	UserRepo           *repository.UserRepository
+	TonClient          *ton.Client
+	PlatformWallet     string
+	AllowedDomain      string
+	MainDB             *Handler
+	OnWithdrawalCreate WithdrawalNotifyFunc // Callback for withdrawal notifications
 }
 
 // NewTonHandler creates a new TON handler
@@ -311,6 +316,11 @@ func (h *TonHandler) RequestWithdrawal(c *gin.Context, db *pgx.Conn) {
 	if err := h.WithdrawalRepo.Create(ctx, withdrawal); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create withdrawal"})
 		return
+	}
+
+	// Notify admins about new withdrawal
+	if h.OnWithdrawalCreate != nil {
+		go h.OnWithdrawalCreate(ctx, withdrawal.ID)
 	}
 
 	// Give 50% of fee to referrer (if user was referred)

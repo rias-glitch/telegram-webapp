@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -500,4 +502,107 @@ func (s *AdminService) GetReferralStats(ctx context.Context, limit int) ([]Refer
 		stats = append(stats, s)
 	}
 	return stats, nil
+}
+
+// UserListItem represents a user in the users list
+type UserListItem struct {
+	ID        int64  `json:"id"`
+	TgID      int64  `json:"tg_id"`
+	Username  string `json:"username"`
+	FirstName string `json:"first_name"`
+	Gems      int64  `json:"gems"`
+	Coins     int64  `json:"coins"`
+}
+
+// GetAllUsers returns all users with pagination
+func (s *AdminService) GetAllUsers(ctx context.Context, limit, offset int) ([]UserListItem, int, error) {
+	var total int
+	_ = s.db.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&total)
+
+	rows, err := s.db.Query(ctx, `
+		SELECT id, tg_id, COALESCE(username, ''), COALESCE(first_name, ''), gems, COALESCE(coins, 0)
+		FROM users
+		ORDER BY id DESC
+		LIMIT $1 OFFSET $2
+	`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var users []UserListItem
+	for rows.Next() {
+		var u UserListItem
+		if err := rows.Scan(&u.ID, &u.TgID, &u.Username, &u.FirstName, &u.Gems, &u.Coins); err != nil {
+			continue
+		}
+		users = append(users, u)
+	}
+	return users, total, nil
+}
+
+// GetUserByUsername returns user by username (without @)
+func (s *AdminService) GetUserByUsername(ctx context.Context, username string) (*UserInfo, error) {
+	// Remove @ if present
+	username = strings.TrimPrefix(username, "@")
+
+	var user UserInfo
+	err := s.db.QueryRow(ctx, `
+		SELECT id, tg_id, COALESCE(username, ''), COALESCE(first_name, ''), gems, COALESCE(coins, 0), created_at
+		FROM users
+		WHERE LOWER(username) = LOWER($1)
+	`, username).Scan(&user.ID, &user.TgID, &user.Username, &user.FirstName, &user.Gems, &user.Coins, &user.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// ResolveUserIdentifier resolves @username or tg_id to internal user ID
+func (s *AdminService) ResolveUserIdentifier(ctx context.Context, identifier string) (int64, error) {
+	// Remove @ if present
+	identifier = strings.TrimPrefix(identifier, "@")
+
+	var userID int64
+
+	// First try to parse as number (tg_id)
+	if tgID, err := strconv.ParseInt(identifier, 10, 64); err == nil {
+		err = s.db.QueryRow(ctx, `SELECT id FROM users WHERE tg_id = $1`, tgID).Scan(&userID)
+		if err == nil {
+			return userID, nil
+		}
+	}
+
+	// Try as username
+	err := s.db.QueryRow(ctx, `SELECT id FROM users WHERE LOWER(username) = LOWER($1)`, identifier).Scan(&userID)
+	return userID, err
+}
+
+// GetWithdrawalInfo returns withdrawal details for notification
+type WithdrawalNotification struct {
+	ID            int64
+	UserID        int64
+	Username      string
+	TgID          int64
+	WalletAddress string
+	CoinsAmount   int64
+	TonAmount     float64
+}
+
+// GetWithdrawalNotification returns withdrawal info for admin notification
+func (s *AdminService) GetWithdrawalNotification(ctx context.Context, withdrawalID int64) (*WithdrawalNotification, error) {
+	var w WithdrawalNotification
+	var tonNano int64
+	err := s.db.QueryRow(ctx, `
+		SELECT w.id, w.user_id, COALESCE(u.username, u.first_name, ''), u.tg_id,
+		       w.wallet_address, w.coins_amount, w.ton_amount_nano
+		FROM withdrawals w
+		JOIN users u ON u.id = w.user_id
+		WHERE w.id = $1
+	`, withdrawalID).Scan(&w.ID, &w.UserID, &w.Username, &w.TgID, &w.WalletAddress, &w.CoinsAmount, &tonNano)
+	if err != nil {
+		return nil, err
+	}
+	w.TonAmount = float64(tonNano) / 1e9
+	return &w, nil
 }

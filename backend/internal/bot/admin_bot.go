@@ -17,12 +17,13 @@ import (
 
 // AdminBot handles admin commands via Telegram
 type AdminBot struct {
-	bot          *tgbotapi.BotAPI
-	adminService *service.AdminService
-	adminIDs     []int64 // Telegram user IDs who can use admin commands
-	stopCh       chan struct{}
-	wg           sync.WaitGroup
-	log          *slog.Logger
+	bot              *tgbotapi.BotAPI
+	adminService     *service.AdminService
+	adminIDs         []int64 // Telegram user IDs who can use admin commands
+	stopCh           chan struct{}
+	wg               sync.WaitGroup
+	log              *slog.Logger
+	broadcastPending map[int64]bool // Track admins waiting to enter broadcast message
 }
 
 // NewAdminBot creates a new admin bot
@@ -36,11 +37,12 @@ func NewAdminBot(token string, adminService *service.AdminService, adminIDs []in
 	log.Info("admin bot authorized", "username", bot.Self.UserName)
 
 	return &AdminBot{
-		bot:          bot,
-		adminService: adminService,
-		adminIDs:     adminIDs,
-		stopCh:       make(chan struct{}),
-		log:          log,
+		bot:              bot,
+		adminService:     adminService,
+		adminIDs:         adminIDs,
+		stopCh:           make(chan struct{}),
+		log:              log,
+		broadcastPending: make(map[int64]bool),
 	}, nil
 }
 
@@ -68,6 +70,16 @@ func (b *AdminBot) Start() {
 
 			// Check if user is admin
 			if !b.isAdmin(update.Message.From.ID) {
+				continue
+			}
+
+			// Check if admin is in broadcast mode (waiting for message)
+			if b.broadcastPending[update.Message.From.ID] && !update.Message.IsCommand() {
+				b.wg.Add(1)
+				go func(msg *tgbotapi.Message) {
+					defer b.wg.Done()
+					b.executeBroadcast(msg)
+				}(update.Message)
 				continue
 			}
 
@@ -160,7 +172,10 @@ func (b *AdminBot) handleCommand(msg *tgbotapi.Message) {
 		response = b.handleRejectWithdrawal(ctx, msg.CommandArguments())
 
 	case "broadcast":
-		response = b.handleBroadcast(ctx, msg.CommandArguments())
+		response = b.handleBroadcastStart(msg.Chat.ID, msg.From.ID)
+
+	case "users":
+		response = b.handleUsers(ctx, msg.CommandArguments())
 
 	case "usergames":
 		response = b.handleUserGames(ctx, msg.CommandArguments())
@@ -197,28 +212,29 @@ func (b *AdminBot) helpMessage() string {
 /stats - Platform statistics
 /top [limit] - Top users by gems
 /games - Recent games
-/usergames &lt;tg_id&gt; - User's last 10 games (gems + coins)
+/usergames &lt;@username|tg_id&gt; - User's last 10 games
 /topusergames [limit] - Top users by game wins
 /referrals [limit] - Top users by referrals
 
 <b>User Management:</b>
-/user &lt;id|tg_id|username&gt; - User info
-/addgems &lt;user_id&gt; &lt;amount&gt; - Add gems
-/addcoins &lt;tg_id&gt; &lt;amount&gt; - Add coins
-/setgems &lt;user_id&gt; &lt;amount&gt; - Set gems
-/ban &lt;user_id&gt; - Ban user
-/unban &lt;user_id&gt; - Unban user
+/user &lt;@username|tg_id&gt; - User info
+/users [page] - All registered users (✅/❌ block status)
+/addgems &lt;@username|tg_id&gt; &lt;amount&gt; - Add gems
+/addcoins &lt;@username|tg_id&gt; &lt;amount&gt; - Add coins
+/setgems &lt;@username|tg_id&gt; &lt;amount&gt; - Set gems
+/ban &lt;@username|tg_id&gt; - Ban user
+/unban &lt;@username|tg_id&gt; - Unban user
 
 <b>Admin Management:</b>
 /addadmin &lt;tg_id&gt; - Add new admin
 
 <b>Withdrawals:</b>
 /withdrawals - Pending withdrawals
-/approve &lt;id&gt; &lt;tx_hash&gt; - Approve withdrawal
+/approve &lt;id&gt; [tx_hash] - Approve withdrawal
 /reject &lt;id&gt; &lt;reason&gt; - Reject withdrawal
 
 <b>Broadcast:</b>
-/broadcast &lt;message&gt; - Send to all users`
+/broadcast - Send message to all users (supports photos, buttons)`
 }
 
 func (b *AdminBot) handleStats(ctx context.Context) string {
@@ -481,8 +497,8 @@ func (b *AdminBot) handleWithdrawals(ctx context.Context) string {
 
 func (b *AdminBot) handleApproveWithdrawal(ctx context.Context, args string) string {
 	parts := strings.Fields(args)
-	if len(parts) < 2 {
-		return "Usage: /approve <withdrawal_id> <tx_hash>"
+	if len(parts) < 1 {
+		return "Usage: /approve <withdrawal_id> [tx_hash]"
 	}
 
 	id, err := strconv.ParseInt(parts[0], 10, 64)
@@ -490,13 +506,22 @@ func (b *AdminBot) handleApproveWithdrawal(ctx context.Context, args string) str
 		return "Invalid withdrawal ID"
 	}
 
-	txHash := parts[1]
+	txHash := ""
+	if len(parts) >= 2 {
+		txHash = parts[1]
+	} else {
+		// Generate a placeholder tx hash if not provided
+		txHash = fmt.Sprintf("manual_%d_%d", id, time.Now().Unix())
+	}
 
 	if err := b.adminService.ApproveWithdrawal(ctx, id, txHash); err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	return fmt.Sprintf("Withdrawal #%d approved with tx: %s", id, txHash)
+	if len(parts) >= 2 {
+		return fmt.Sprintf("✅ Withdrawal #%d approved with tx: %s", id, txHash)
+	}
+	return fmt.Sprintf("✅ Withdrawal #%d approved (manual confirmation)", id)
 }
 
 func (b *AdminBot) handleRejectWithdrawal(ctx context.Context, args string) string {
@@ -519,45 +544,169 @@ func (b *AdminBot) handleRejectWithdrawal(ctx context.Context, args string) stri
 	return fmt.Sprintf("Withdrawal #%d rejected. Gems refunded.", id)
 }
 
-func (b *AdminBot) handleBroadcast(ctx context.Context, message string) string {
-	if message == "" {
-		return "Usage: /broadcast <message>"
+func (b *AdminBot) handleBroadcastStart(chatID int64, adminID int64) string {
+	b.broadcastPending[adminID] = true
+
+	return `📢 <b>Broadcast Mode</b>
+
+Введите сообщение для рассылки ниже.
+
+<b>Поддерживается:</b>
+• Текст с HTML разметкой
+• Фото с подписью
+• Кнопки (формат: [текст](url))
+
+Отправьте /cancel для отмены.`
+}
+
+func (b *AdminBot) executeBroadcast(msg *tgbotapi.Message) {
+	adminID := msg.From.ID
+	chatID := msg.Chat.ID
+
+	// Cancel if user sends /cancel
+	if msg.Text == "/cancel" {
+		delete(b.broadcastPending, adminID)
+		reply := tgbotapi.NewMessage(chatID, "❌ Рассылка отменена")
+		b.bot.Send(reply)
+		return
 	}
 
-	b.log.Info("starting broadcast", "message", message)
+	delete(b.broadcastPending, adminID)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	b.log.Info("starting broadcast", "admin_id", adminID)
 
 	userIDs, err := b.adminService.GetAllUserTgIDs(ctx)
 	if err != nil {
 		b.log.Error("failed to get user IDs", "error", err)
-		return fmt.Sprintf("Error getting users: %v", err)
+		reply := tgbotapi.NewMessage(chatID, fmt.Sprintf("❌ Ошибка: %v", err))
+		b.bot.Send(reply)
+		return
 	}
-
-	b.log.Info("found users for broadcast", "count", len(userIDs))
 
 	if len(userIDs) == 0 {
-		return "No users found to broadcast to"
+		reply := tgbotapi.NewMessage(chatID, "❌ Нет пользователей для рассылки")
+		b.bot.Send(reply)
+		return
 	}
+
+	// Send progress message
+	progressMsg := tgbotapi.NewMessage(chatID, fmt.Sprintf("📤 Начинаю рассылку %d пользователям...", len(userIDs)))
+	b.bot.Send(progressMsg)
 
 	sent := 0
 	failed := 0
+	blocked := 0
 
 	for _, tgID := range userIDs {
-		msg := tgbotapi.NewMessage(tgID, message)
-		msg.ParseMode = "HTML"
+		var err error
 
-		if _, err := b.bot.Send(msg); err != nil {
-			b.log.Error("failed to send broadcast message", "tg_id", tgID, "error", err)
+		// Check if it's a photo message
+		if msg.Photo != nil && len(msg.Photo) > 0 {
+			// Get the largest photo
+			photo := msg.Photo[len(msg.Photo)-1]
+			photoMsg := tgbotapi.NewPhoto(tgID, tgbotapi.FileID(photo.FileID))
+			photoMsg.Caption = msg.Caption
+			photoMsg.ParseMode = "HTML"
+			_, err = b.bot.Send(photoMsg)
+		} else {
+			// Text message
+			textMsg := tgbotapi.NewMessage(tgID, msg.Text)
+			textMsg.ParseMode = "HTML"
+			textMsg.DisableWebPagePreview = true
+			_, err = b.bot.Send(textMsg)
+		}
+
+		if err != nil {
+			if strings.Contains(err.Error(), "blocked") || strings.Contains(err.Error(), "deactivated") {
+				blocked++
+			} else {
+				b.log.Error("failed to send broadcast", "tg_id", tgID, "error", err)
+			}
 			failed++
 		} else {
 			sent++
 		}
 
-		// Rate limiting
+		// Rate limiting - 20 messages per second
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	b.log.Info("broadcast complete", "sent", sent, "failed", failed)
-	return fmt.Sprintf("Broadcast complete. Sent: %d, Failed: %d", sent, failed)
+	b.log.Info("broadcast complete", "sent", sent, "failed", failed, "blocked", blocked)
+
+	result := fmt.Sprintf(`✅ <b>Рассылка завершена</b>
+
+📨 Отправлено: %d
+❌ Не доставлено: %d
+🚫 Заблокировали бота: %d`, sent, failed-blocked, blocked)
+
+	reply := tgbotapi.NewMessage(chatID, result)
+	reply.ParseMode = "HTML"
+	b.bot.Send(reply)
+}
+
+// handleUsers returns list of all users with block status
+func (b *AdminBot) handleUsers(ctx context.Context, args string) string {
+	page := 1
+	if args != "" {
+		if n, err := strconv.Atoi(args); err == nil && n > 0 {
+			page = n
+		}
+	}
+
+	limit := 20
+	offset := (page - 1) * limit
+
+	users, total, err := b.adminService.GetAllUsers(ctx, limit, offset)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	if len(users) == 0 {
+		return "No users found"
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>Users (page %d, total: %d)</b>\n\n", page, total))
+
+	for _, u := range users {
+		// Check if user blocked the bot
+		status := "✅"
+		if !b.canSendToUser(u.TgID) {
+			status = "❌"
+		}
+
+		username := u.Username
+		if username == "" {
+			username = u.FirstName
+		}
+		if username == "" {
+			username = fmt.Sprintf("id:%d", u.TgID)
+		}
+
+		sb.WriteString(fmt.Sprintf("%s @%s | 💎%d | 🪙%d\n", status, username, u.Gems, u.Coins))
+	}
+
+	totalPages := (total + limit - 1) / limit
+	if totalPages > 1 {
+		sb.WriteString(fmt.Sprintf("\nPage %d/%d. Use /users %d for next page", page, totalPages, page+1))
+	}
+
+	return sb.String()
+}
+
+// canSendToUser checks if bot can send messages to user
+func (b *AdminBot) canSendToUser(tgID int64) bool {
+	// Try to get chat info - if it fails, user blocked the bot
+	chat, err := b.bot.GetChat(tgbotapi.ChatInfoConfig{
+		ChatConfig: tgbotapi.ChatConfig{ChatID: tgID},
+	})
+	if err != nil {
+		return false
+	}
+	return chat.ID != 0
 }
 
 func (b *AdminBot) handleUserGames(ctx context.Context, args string) string {
@@ -711,6 +860,35 @@ func (b *AdminBot) SendNotification(tgID int64, message string) error {
 	msg.ParseMode = "HTML"
 	_, err := b.bot.Send(msg)
 	return err
+}
+
+// NotifyAdminsNewWithdrawal notifies all admins about a new withdrawal request
+func (b *AdminBot) NotifyAdminsNewWithdrawal(ctx context.Context, withdrawalID int64) {
+	w, err := b.adminService.GetWithdrawalNotification(ctx, withdrawalID)
+	if err != nil {
+		b.log.Error("failed to get withdrawal for notification", "error", err)
+		return
+	}
+
+	message := fmt.Sprintf(`🔔 <b>Новый запрос на вывод!</b>
+
+👤 Пользователь: @%s (TG: %d)
+💰 Сумма: %d coins (%.4f TON)
+💳 Кошелек: <code>%s</code>
+
+ID: #%d
+
+/approve %d - одобрить
+/reject %d причина - отклонить`,
+		w.Username, w.TgID, w.CoinsAmount, w.TonAmount, w.WalletAddress, w.ID, w.ID, w.ID)
+
+	for _, adminID := range b.adminIDs {
+		msg := tgbotapi.NewMessage(adminID, message)
+		msg.ParseMode = "HTML"
+		if _, err := b.bot.Send(msg); err != nil {
+			b.log.Error("failed to notify admin", "admin_id", adminID, "error", err)
+		}
+	}
 }
 
 func (b *AdminBot) handleReferralStats(ctx context.Context, args string) string {
