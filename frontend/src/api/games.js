@@ -83,3 +83,29 @@ export async function getCoinFlipProState() {
 export async function getCoinFlipProInfo() {
   return api.get('/game/coinflip-pro/info')
 }
+
+// Leaderboard
+export async function getLeaderboard() {
+  return api.get('/leaderboard')
+}
+
+export async function getMyRank() {
+  return api.get('/leaderboard/rank')
+}
+
+// Upgrade system
+export async function getUpgradeInfo() {
+  return api.get('/upgrade/info')
+}
+
+export async function getUpgradeStatus() {
+  return api.get('/upgrade/status')
+}
+
+export async function upgradeCharacter(targetLevel) {
+  return api.post('/upgrade/level', { target_level: targetLevel })
+}
+
+export async function claimReferralReward(threshold) {
+  return api.post('/upgrade/claim-reward', { threshold })
+}

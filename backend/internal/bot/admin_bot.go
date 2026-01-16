@@ -174,6 +174,9 @@ func (b *AdminBot) handleCommand(msg *tgbotapi.Message) {
 	case "addadmin":
 		response = b.handleAddAdmin(msg.CommandArguments())
 
+	case "referrals":
+		response = b.handleReferralStats(ctx, msg.CommandArguments())
+
 	default:
 		response = "Unknown command. Use /help for available commands."
 	}
@@ -196,6 +199,7 @@ func (b *AdminBot) helpMessage() string {
 /games - Recent games
 /usergames &lt;tg_id&gt; - User's last 10 games (gems + coins)
 /topusergames [limit] - Top users by game wins
+/referrals [limit] - Top users by referrals
 
 <b>User Management:</b>
 /user &lt;id|tg_id|username&gt; - User info
@@ -707,4 +711,40 @@ func (b *AdminBot) SendNotification(tgID int64, message string) error {
 	msg.ParseMode = "HTML"
 	_, err := b.bot.Send(msg)
 	return err
+}
+
+func (b *AdminBot) handleReferralStats(ctx context.Context, args string) string {
+	limit := 20
+	if args != "" {
+		if n, err := strconv.Atoi(args); err == nil && n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+
+	stats, err := b.adminService.GetReferralStats(ctx, limit)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	if len(stats) == 0 {
+		return "No users with referrals found"
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>Top %d Users by Referrals</b>\n\n", limit))
+	sb.WriteString("Rank | User | Referrals\n")
+	sb.WriteString("─────────────────────────\n")
+
+	for i, s := range stats {
+		username := s.Username
+		if username == "" {
+			username = s.FirstName
+		}
+		if username == "" {
+			username = fmt.Sprintf("id:%d", s.UserID)
+		}
+		sb.WriteString(fmt.Sprintf("%d. @%s - %d refs\n", i+1, username, s.Count))
+	}
+
+	return sb.String()
 }

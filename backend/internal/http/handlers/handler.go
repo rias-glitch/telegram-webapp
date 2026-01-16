@@ -19,6 +19,7 @@ type Handler struct {
 	GameHistoryRepo    *repository.GameHistoryRepository
 	QuestRepo          *repository.QuestRepository
 	TransactionRepo    *repository.TransactionRepository
+	UserRepo           *repository.UserRepository
 	MinesProService    *service.MinesProService
 	CoinFlipProService *service.CoinFlipProService
 	GameService        *service.GameService
@@ -32,6 +33,7 @@ func NewHandler(db *pgxpool.Pool, botToken string) *Handler {
 		GameHistoryRepo:    repository.NewGameHistoryRepository(db),
 		QuestRepo:          repository.NewQuestRepository(db),
 		TransactionRepo:    repository.NewTransactionRepository(db),
+		UserRepo:           repository.NewUserRepository(db),
 		MinesProService:    service.NewMinesProService(db),
 		CoinFlipProService: service.NewCoinFlipProService(db),
 		GameService:        service.NewGameService(db),
@@ -47,6 +49,7 @@ func NewHandlerWithConfig(db *pgxpool.Pool, botToken string, cfg HandlerConfig) 
 		GameHistoryRepo:    repository.NewGameHistoryRepository(db),
 		QuestRepo:          repository.NewQuestRepository(db),
 		TransactionRepo:    repository.NewTransactionRepository(db),
+		UserRepo:           repository.NewUserRepository(db),
 		MinesProService:    service.NewMinesProService(db),
 		CoinFlipProService: service.NewCoinFlipProService(db),
 		GameService:        service.NewGameServiceWithLimits(db, cfg.MinBet, cfg.MaxBet),

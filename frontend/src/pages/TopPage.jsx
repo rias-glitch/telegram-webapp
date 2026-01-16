@@ -1,23 +1,28 @@
 import { useState, useEffect } from 'react'
 import { Card } from '../components/ui'
-import { getTopUsers } from '../api/games'
+import { getLeaderboard, getMyRank } from '../api/games'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-export function TopPage() {
-  const [users, setUsers] = useState([])
+export function TopPage({ user }) {
+  const [leaderboard, setLeaderboard] = useState([])
+  const [myRank, setMyRank] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    loadTop()
+    loadData()
   }, [])
 
-  const loadTop = async () => {
+  const loadData = async () => {
     try {
       setLoading(true)
-      const response = await getTopUsers()
-      setUsers(response.top || [])
+      const [leaderboardRes, rankRes] = await Promise.all([
+        getLeaderboard(),
+        user ? getMyRank() : Promise.resolve(null)
+      ])
+      setLeaderboard(leaderboardRes?.leaderboard || [])
+      setMyRank(rankRes)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -46,22 +51,22 @@ export function TopPage() {
   }
 
   return (
-    <div className="space-y-4 animate-fadeIn">
+    <div className="space-y-4 animate-fadeIn pb-20">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Leaderboard</h1>
-        <span className="text-white/60 text-sm">Monthly wins</span>
+        <h1 className="text-2xl font-bold">Top 100</h1>
+        <span className="text-white/60 text-sm">Monthly</span>
       </div>
 
-      {users.length === 0 ? (
+      {leaderboard.length === 0 ? (
         <Card className="text-center py-8">
           <div className="text-4xl mb-2">🏆</div>
-          <p className="text-white/60">No players yet</p>
+          <p className="text-white/60">No players yet this month</p>
         </Card>
       ) : (
         <div className="space-y-2">
-          {users.map((user, index) => (
+          {leaderboard.map((entry, index) => (
             <Card
-              key={user.user_id}
+              key={entry.user?.id || index}
               className={`flex items-center gap-3 ${
                 index < 3 ? 'border border-primary/30' : ''
               }`}
@@ -71,33 +76,59 @@ export function TopPage() {
                 {index < 3 ? (
                   <span className="text-2xl">{MEDALS[index]}</span>
                 ) : (
-                  <span className="text-white/40 font-bold">{index + 1}</span>
+                  <span className="text-white/40 font-bold">#{entry.rank || index + 1}</span>
                 )}
               </div>
 
               {/* User info */}
               <div className="flex-1 min-w-0">
                 <div className="font-semibold truncate">
-                  {user.first_name || user.username || `User ${user.user_id}`}
+                  {entry.user?.first_name || entry.user?.username || `User`}
                 </div>
-                {user.username && user.first_name && (
-                  <div className="text-white/40 text-sm truncate">@{user.username}</div>
+                {entry.user?.username && (
+                  <div className="text-white/40 text-sm truncate">@{entry.user.username}</div>
                 )}
               </div>
 
-              {/* Stats */}
+              {/* Won amount */}
               <div className="text-right">
-                <div className="font-bold text-success">{user.wins} wins</div>
-                <div className="text-white/40 text-xs">{user.games} games</div>
-              </div>
-
-              {/* Gems */}
-              <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-lg">
-                <span className="text-sm">💎</span>
-                <span className="font-bold text-sm">{user.gems?.toLocaleString()}</span>
+                <div className="font-bold text-success flex items-center gap-1">
+                  <span>+{entry.won_amount?.toLocaleString()}</span>
+                  <span className="text-sm">💎</span>
+                </div>
+                <div className="text-white/40 text-xs">won this month</div>
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Fixed user rank at bottom */}
+      {myRank && (
+        <div className="fixed bottom-20 left-0 right-0 px-4">
+          <Card className="bg-gradient-to-r from-primary/20 to-secondary/20 border border-primary/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <span className="text-lg">👤</span>
+                </div>
+                <div>
+                  <div className="font-semibold">You</div>
+                  <div className="text-white/60 text-sm">
+                    {myRank.won_amount > 0
+                      ? `+${myRank.won_amount.toLocaleString()} won`
+                      : 'No wins yet'}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-primary">
+                  #{myRank.rank || '—'}
+                </div>
+                <div className="text-white/40 text-xs">your rank</div>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
     </div>

@@ -2,8 +2,9 @@ import { NavLink } from 'react-router-dom'
 
 const navItems = [
   { path: '/', icon: '🎮', label: 'Игры' },
+  { path: '/top', icon: '🏆', label: 'Топ' },
+  { path: '/upgrade', icon: '⚡', label: 'Прокачка' },
   { path: '/wallet', icon: '💰', label: 'Кошелёк' },
-  // { path: '/top', icon: '🏆', label: 'Топ' }, // Temporarily hidden
   { path: '/profile', icon: '👤', label: 'Профиль' },
 ]
 

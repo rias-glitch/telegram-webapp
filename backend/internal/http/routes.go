@@ -175,6 +175,21 @@ func registerAPIRoutes(api *gin.RouterGroup, h *handlers.Handler, authRateLimit 
 		referral.POST("/apply", referralHandler.ApplyReferralCode)
 	}
 
+	// Upgrade system (character levels, GK currency)
+	userRepo := repository.NewUserRepository(h.DB)
+	upgradeHandler := handlers.NewUpgradeHandler(userRepo, referralRepo)
+	upgrade := api.Group("/upgrade")
+	{
+		upgrade.GET("/info", upgradeHandler.GetUpgradeInfo)
+		upgrade.GET("/status", middleware.JWT(), upgradeHandler.GetMyUpgradeStatus)
+		upgrade.POST("/level", middleware.JWT(), upgradeHandler.UpgradeCharacter)
+		upgrade.POST("/claim-reward", middleware.JWT(), upgradeHandler.ClaimReferralReward)
+	}
+
+	// Leaderboard (monthly top 100 + user rank)
+	api.GET("/leaderboard", h.GetLeaderboard)
+	api.GET("/leaderboard/rank", middleware.JWT(), h.GetMyRank)
+
 	// TON Connect & Payments
 	tonHandler := handlers.NewTonHandler(h)
 	ton := api.Group("/ton")

@@ -7,6 +7,7 @@ import { CasesPage } from './pages/CasesPage'
 import { TopPage } from './pages/TopPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { WalletPage } from './pages/WalletPage'
+import { UpgradePage } from './pages/UpgradePage'
 import { RPSPage } from './pages/RPSPage'
 import { MinesPage } from './pages/MinesPage'
 
@@ -62,7 +63,11 @@ function App() {
         />
         <Route
           path="/top"
-          element={<TopPage />}
+          element={<TopPage user={user} />}
+        />
+        <Route
+          path="/upgrade"
+          element={<UpgradePage user={user} setUser={setUser} />}
         />
         <Route
           path="/profile"

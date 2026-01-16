@@ -2,11 +2,14 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"telegram_webapp/internal/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var ErrInsufficientFunds = errors.New("insufficient funds")
 
 type UserRepository struct {
 	db *pgxpool.Pool
@@ -18,7 +21,8 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 
 func (r *UserRepository) GetByTgID(ctx context.Context, tgID int64) (*domain.User, error) {
 	row := r.db.QueryRow(ctx,
-		`SELECT id, tg_id, username, first_name, gems, coins, created_at
+		`SELECT id, tg_id, username, first_name, gems, coins,
+		        COALESCE(gk, 0), COALESCE(character_level, 1), COALESCE(referral_earnings, 0), created_at
 		 FROM users
 		 WHERE tg_id = $1`,
 		tgID,
@@ -32,6 +36,9 @@ func (r *UserRepository) GetByTgID(ctx context.Context, tgID int64) (*domain.Use
 		&u.FirstName,
 		&u.Gems,
 		&u.Coins,
+		&u.GK,
+		&u.CharacterLevel,
+		&u.ReferralEarnings,
 		&u.CreatedAt,
 	); err != nil {
 		return nil, err
@@ -57,7 +64,8 @@ func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 
 func (r *UserRepository) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 	row := r.db.QueryRow(ctx,
-		`SELECT id, tg_id, username, first_name, gems, coins, created_at
+		`SELECT id, tg_id, username, first_name, gems, coins,
+		        COALESCE(gk, 0), COALESCE(character_level, 1), COALESCE(referral_earnings, 0), created_at
 		 FROM users
 		 WHERE id = $1`,
 		id,
@@ -71,6 +79,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id int64) (*domain.User, e
 		&u.FirstName,
 		&u.Gems,
 		&u.Coins,
+		&u.GK,
+		&u.CharacterLevel,
+		&u.ReferralEarnings,
 		&u.CreatedAt,
 	); err != nil {
 		return nil, err
@@ -148,4 +159,125 @@ func (r *UserRepository) GetGems(ctx context.Context, userID int64) (int64, erro
 	var gems int64
 	err := r.db.QueryRow(ctx, `SELECT gems FROM users WHERE id = $1`, userID).Scan(&gems)
 	return gems, err
+}
+
+// UpdateGK updates user's GK balance
+func (r *UserRepository) UpdateGK(ctx context.Context, userID int64, delta int64) (int64, error) {
+	var newBalance int64
+	err := r.db.QueryRow(ctx,
+		`UPDATE users SET gk = COALESCE(gk, 0) + $1 WHERE id = $2 AND COALESCE(gk, 0) + $1 >= 0 RETURNING gk`,
+		delta, userID,
+	).Scan(&newBalance)
+	return newBalance, err
+}
+
+// GetGK returns user's GK balance
+func (r *UserRepository) GetGK(ctx context.Context, userID int64) (int64, error) {
+	var gk int64
+	err := r.db.QueryRow(ctx, `SELECT COALESCE(gk, 0) FROM users WHERE id = $1`, userID).Scan(&gk)
+	return gk, err
+}
+
+// GetCharacterLevel returns user's character level
+func (r *UserRepository) GetCharacterLevel(ctx context.Context, userID int64) (int, error) {
+	var level int
+	err := r.db.QueryRow(ctx, `SELECT COALESCE(character_level, 1) FROM users WHERE id = $1`, userID).Scan(&level)
+	return level, err
+}
+
+// UpgradeCharacter upgrades character level and deducts GK
+func (r *UserRepository) UpgradeCharacter(ctx context.Context, userID int64, newLevel int, gkCost int64) error {
+	result, err := r.db.Exec(ctx,
+		`UPDATE users
+		 SET character_level = $1, gk = COALESCE(gk, 0) - $2
+		 WHERE id = $3 AND COALESCE(character_level, 1) = $1 - 1 AND COALESCE(gk, 0) >= $2`,
+		newLevel, gkCost, userID,
+	)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrInsufficientFunds
+	}
+	return nil
+}
+
+// AddReferralEarnings adds referral earnings to user
+func (r *UserRepository) AddReferralEarnings(ctx context.Context, userID int64, amount int64) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE users SET referral_earnings = COALESCE(referral_earnings, 0) + $1 WHERE id = $2`,
+		amount, userID,
+	)
+	return err
+}
+
+// TopUserEntry represents a user in the leaderboard
+type TopUserEntry struct {
+	Rank      int          `json:"rank"`
+	User      domain.User  `json:"user"`
+	WonAmount int64        `json:"won_amount"`
+}
+
+// GetMonthlyTop returns top users by winnings in the current month
+func (r *UserRepository) GetMonthlyTop(ctx context.Context, limit int) ([]TopUserEntry, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT u.id, u.tg_id, u.username, u.first_name, u.gems, u.coins,
+		       COALESCE(u.gk, 0), COALESCE(u.character_level, 1), COALESCE(u.referral_earnings, 0),
+		       u.created_at, COALESCE(w.won, 0) as won_amount
+		FROM users u
+		LEFT JOIN (
+			SELECT user_id, SUM(CASE WHEN won THEN win_amount ELSE 0 END) as won
+			FROM game_history
+			WHERE created_at >= date_trunc('month', CURRENT_DATE)
+			GROUP BY user_id
+		) w ON w.user_id = u.id
+		ORDER BY won_amount DESC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []TopUserEntry
+	rank := 1
+	for rows.Next() {
+		var u domain.User
+		var wonAmount int64
+		if err := rows.Scan(&u.ID, &u.TgID, &u.Username, &u.FirstName, &u.Gems, &u.Coins,
+			&u.GK, &u.CharacterLevel, &u.ReferralEarnings, &u.CreatedAt, &wonAmount); err != nil {
+			return nil, err
+		}
+		res = append(res, TopUserEntry{
+			Rank:      rank,
+			User:      u,
+			WonAmount: wonAmount,
+		})
+		rank++
+	}
+	return res, nil
+}
+
+// GetUserRank returns user's rank in the monthly leaderboard
+func (r *UserRepository) GetUserRank(ctx context.Context, userID int64) (int, int64, error) {
+	var rank int
+	var wonAmount int64
+	err := r.db.QueryRow(ctx, `
+		WITH user_wins AS (
+			SELECT user_id, SUM(CASE WHEN won THEN win_amount ELSE 0 END) as won
+			FROM game_history
+			WHERE created_at >= date_trunc('month', CURRENT_DATE)
+			GROUP BY user_id
+		),
+		ranked AS (
+			SELECT u.id, COALESCE(w.won, 0) as won_amount,
+			       RANK() OVER (ORDER BY COALESCE(w.won, 0) DESC) as rank
+			FROM users u
+			LEFT JOIN user_wins w ON w.user_id = u.id
+		)
+		SELECT rank, won_amount FROM ranked WHERE id = $1
+	`, userID).Scan(&rank, &wonAmount)
+	if err != nil {
+		return 0, 0, err
+	}
+	return rank, wonAmount, nil
 }

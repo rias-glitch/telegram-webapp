@@ -19,9 +19,12 @@ type TonHandler struct {
 	DB             *repository.WalletRepository
 	DepositRepo    *repository.DepositRepository
 	WithdrawalRepo *repository.WithdrawalRepository
+	ReferralRepo   *repository.ReferralRepository
+	UserRepo       *repository.UserRepository
 	TonClient      *ton.Client
 	PlatformWallet string
 	AllowedDomain  string
+	MainDB         *Handler
 }
 
 // NewTonHandler creates a new TON handler
@@ -35,9 +38,12 @@ func NewTonHandler(h *Handler) *TonHandler {
 		DB:             repository.NewWalletRepository(h.DB),
 		DepositRepo:    repository.NewDepositRepository(h.DB),
 		WithdrawalRepo: repository.NewWithdrawalRepository(h.DB),
+		ReferralRepo:   repository.NewReferralRepository(h.DB),
+		UserRepo:       repository.NewUserRepository(h.DB),
 		TonClient:      ton.NewClient(network, os.Getenv("TON_API_KEY")),
 		PlatformWallet: os.Getenv("TON_PLATFORM_WALLET"),
 		AllowedDomain:  os.Getenv("TON_ALLOWED_DOMAIN"),
+		MainDB:         h,
 	}
 }
 
@@ -298,6 +304,32 @@ func (h *TonHandler) RequestWithdrawal(c *gin.Context, db *pgx.Conn) {
 	if err := h.WithdrawalRepo.Create(ctx, withdrawal); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create withdrawal"})
 		return
+	}
+
+	// Give 50% of fee to referrer (if user was referred)
+	referrerID, err := h.ReferralRepo.GetReferrerID(ctx, userID)
+	if err == nil && referrerID > 0 {
+		// 50% of fee goes to referrer
+		referrerCommission := feeCoins / 2
+		if referrerCommission > 0 {
+			// Add coins to referrer
+			_, _ = h.UserRepo.UpdateCoins(ctx, referrerID, referrerCommission)
+			// Track referral earnings
+			_ = h.UserRepo.AddReferralEarnings(ctx, referrerID, referrerCommission)
+
+			// Record transaction for referrer
+			meta := map[string]interface{}{
+				"type":           "referral_commission",
+				"from_user_id":   userID,
+				"withdrawal_id":  withdrawal.ID,
+				"total_fee":      feeCoins,
+				"commission_pct": 50,
+			}
+			metaB, _ := json.Marshal(meta)
+			_, _ = h.MainDB.DB.Exec(ctx,
+				`INSERT INTO transactions (user_id, type, amount, meta) VALUES ($1, $2, $3, $4)`,
+				referrerID, "referral_commission", referrerCommission, metaB)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

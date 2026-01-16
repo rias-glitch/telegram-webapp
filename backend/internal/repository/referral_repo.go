@@ -183,3 +183,122 @@ func (r *ReferralRepository) IsReferred(ctx context.Context, userID int64) (bool
 	).Scan(&count)
 	return count > 0, err
 }
+
+// GetReferrerID returns the referrer's user ID for a given user
+func (r *ReferralRepository) GetReferrerID(ctx context.Context, userID int64) (int64, error) {
+	var referrerID int64
+	err := r.db.QueryRow(ctx,
+		`SELECT referred_by FROM users WHERE id = $1 AND referred_by IS NOT NULL`,
+		userID,
+	).Scan(&referrerID)
+	return referrerID, err
+}
+
+// GetClaimedGKRewards returns list of claimed GK reward thresholds for a user
+func (r *ReferralRepository) GetClaimedGKRewards(ctx context.Context, userID int64) ([]int, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT threshold FROM gk_rewards_claimed WHERE user_id = $1`,
+		userID,
+	)
+	if err != nil {
+		return []int{}, nil // Return empty if table doesn't exist yet
+	}
+	defer rows.Close()
+
+	var thresholds []int
+	for rows.Next() {
+		var t int
+		if err := rows.Scan(&t); err != nil {
+			continue
+		}
+		thresholds = append(thresholds, t)
+	}
+	return thresholds, nil
+}
+
+// IsGKRewardClaimed checks if a GK reward threshold has been claimed
+func (r *ReferralRepository) IsGKRewardClaimed(ctx context.Context, userID int64, threshold int) (bool, error) {
+	var count int
+	err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM gk_rewards_claimed WHERE user_id = $1 AND threshold = $2`,
+		userID, threshold,
+	).Scan(&count)
+	if err != nil {
+		return false, nil // Assume not claimed if table doesn't exist
+	}
+	return count > 0, nil
+}
+
+// ClaimGKReward claims a GK reward and adds GK to user balance
+func (r *ReferralRepository) ClaimGKReward(ctx context.Context, userID int64, threshold int, reward int64) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Record the claim
+	_, err = tx.Exec(ctx,
+		`INSERT INTO gk_rewards_claimed (user_id, threshold, reward, claimed_at)
+		 VALUES ($1, $2, $3, NOW())
+		 ON CONFLICT (user_id, threshold) DO NOTHING`,
+		userID, threshold, reward,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Add GK to user
+	_, err = tx.Exec(ctx,
+		`UPDATE users SET gk = COALESCE(gk, 0) + $1 WHERE id = $2`,
+		reward, userID,
+	)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// GetAllReferralStats returns all users with their referral counts (for admin)
+func (r *ReferralRepository) GetAllReferralStats(ctx context.Context, limit int) ([]struct {
+	UserID    int64  `json:"user_id"`
+	Username  string `json:"username"`
+	FirstName string `json:"first_name"`
+	Count     int    `json:"count"`
+}, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT u.id, u.username, u.first_name, COUNT(r.id) as ref_count
+		FROM users u
+		LEFT JOIN referrals r ON r.referrer_id = u.id
+		GROUP BY u.id, u.username, u.first_name
+		HAVING COUNT(r.id) > 0
+		ORDER BY ref_count DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		UserID    int64  `json:"user_id"`
+		Username  string `json:"username"`
+		FirstName string `json:"first_name"`
+		Count     int    `json:"count"`
+	}
+
+	for rows.Next() {
+		var r struct {
+			UserID    int64  `json:"user_id"`
+			Username  string `json:"username"`
+			FirstName string `json:"first_name"`
+			Count     int    `json:"count"`
+		}
+		if err := rows.Scan(&r.UserID, &r.Username, &r.FirstName, &r.Count); err != nil {
+			continue
+		}
+		results = append(results, r)
+	}
+	return results, nil
+}

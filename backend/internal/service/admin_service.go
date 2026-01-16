@@ -466,3 +466,38 @@ func (s *AdminService) GetUserByTgID(ctx context.Context, tgID int64) (*UserInfo
 	}
 	return &user, nil
 }
+
+// ReferralStat represents referral statistics for a user
+type ReferralStat struct {
+	UserID    int64  `json:"user_id"`
+	Username  string `json:"username"`
+	FirstName string `json:"first_name"`
+	Count     int    `json:"count"`
+}
+
+// GetReferralStats returns users with their referral counts
+func (s *AdminService) GetReferralStats(ctx context.Context, limit int) ([]ReferralStat, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT u.id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COUNT(r.id) as ref_count
+		FROM users u
+		LEFT JOIN referrals r ON r.referrer_id = u.id
+		GROUP BY u.id, u.username, u.first_name
+		HAVING COUNT(r.id) > 0
+		ORDER BY ref_count DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []ReferralStat
+	for rows.Next() {
+		var s ReferralStat
+		if err := rows.Scan(&s.UserID, &s.Username, &s.FirstName, &s.Count); err != nil {
+			continue
+		}
+		stats = append(stats, s)
+	}
+	return stats, nil
+}
