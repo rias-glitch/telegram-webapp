@@ -21,8 +21,7 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 
 func (r *UserRepository) GetByTgID(ctx context.Context, tgID int64) (*domain.User, error) {
 	row := r.db.QueryRow(ctx,
-		`SELECT id, tg_id, username, first_name, gems, coins,
-		        COALESCE(gk, 0), COALESCE(character_level, 1), COALESCE(referral_earnings, 0), created_at
+		`SELECT id, tg_id, COALESCE(username, ''), COALESCE(first_name, ''), gems, COALESCE(coins, 0), created_at
 		 FROM users
 		 WHERE tg_id = $1`,
 		tgID,
@@ -36,13 +35,16 @@ func (r *UserRepository) GetByTgID(ctx context.Context, tgID int64) (*domain.Use
 		&u.FirstName,
 		&u.Gems,
 		&u.Coins,
-		&u.GK,
-		&u.CharacterLevel,
-		&u.ReferralEarnings,
 		&u.CreatedAt,
 	); err != nil {
 		return nil, err
 	}
+
+	// Try to get new columns if they exist
+	_ = r.db.QueryRow(ctx,
+		`SELECT COALESCE(gk, 0), COALESCE(character_level, 1), COALESCE(referral_earnings, 0)
+		 FROM users WHERE id = $1`, u.ID,
+	).Scan(&u.GK, &u.CharacterLevel, &u.ReferralEarnings)
 
 	return &u, nil
 }
@@ -64,8 +66,7 @@ func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 
 func (r *UserRepository) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 	row := r.db.QueryRow(ctx,
-		`SELECT id, tg_id, username, first_name, gems, coins,
-		        COALESCE(gk, 0), COALESCE(character_level, 1), COALESCE(referral_earnings, 0), created_at
+		`SELECT id, tg_id, COALESCE(username, ''), COALESCE(first_name, ''), gems, COALESCE(coins, 0), created_at
 		 FROM users
 		 WHERE id = $1`,
 		id,
@@ -79,13 +80,16 @@ func (r *UserRepository) GetByID(ctx context.Context, id int64) (*domain.User, e
 		&u.FirstName,
 		&u.Gems,
 		&u.Coins,
-		&u.GK,
-		&u.CharacterLevel,
-		&u.ReferralEarnings,
 		&u.CreatedAt,
 	); err != nil {
 		return nil, err
 	}
+
+	// Try to get new columns if they exist
+	_ = r.db.QueryRow(ctx,
+		`SELECT COALESCE(gk, 0), COALESCE(character_level, 1), COALESCE(referral_earnings, 0)
+		 FROM users WHERE id = $1`, u.ID,
+	).Scan(&u.GK, &u.CharacterLevel, &u.ReferralEarnings)
 
 	return &u, nil
 }
@@ -221,9 +225,8 @@ type TopUserEntry struct {
 // GetMonthlyTop returns top users by winnings in the current month
 func (r *UserRepository) GetMonthlyTop(ctx context.Context, limit int) ([]TopUserEntry, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT u.id, u.tg_id, u.username, u.first_name, u.gems, u.coins,
-		       COALESCE(u.gk, 0), COALESCE(u.character_level, 1), COALESCE(u.referral_earnings, 0),
-		       u.created_at, COALESCE(w.won, 0) as won_amount
+		SELECT u.id, u.tg_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''),
+		       u.gems, COALESCE(u.coins, 0), u.created_at, COALESCE(w.won, 0) as won_amount
 		FROM users u
 		LEFT JOIN (
 			SELECT user_id, SUM(CASE WHEN won THEN win_amount ELSE 0 END) as won
@@ -244,7 +247,7 @@ func (r *UserRepository) GetMonthlyTop(ctx context.Context, limit int) ([]TopUse
 		var u domain.User
 		var wonAmount int64
 		if err := rows.Scan(&u.ID, &u.TgID, &u.Username, &u.FirstName, &u.Gems, &u.Coins,
-			&u.GK, &u.CharacterLevel, &u.ReferralEarnings, &u.CreatedAt, &wonAmount); err != nil {
+			&u.CreatedAt, &wonAmount); err != nil {
 			return nil, err
 		}
 		res = append(res, TopUserEntry{
