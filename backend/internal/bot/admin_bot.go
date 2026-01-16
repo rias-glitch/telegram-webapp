@@ -218,7 +218,7 @@ func (b *AdminBot) helpMessage() string {
 
 <b>User Management:</b>
 /user &lt;@username|tg_id&gt; - User info
-/users [page] - All registered users (✅/❌ block status)
+/users [page] - All registered users
 /addgems &lt;@username|tg_id&gt; &lt;amount&gt; - Add gems
 /addcoins &lt;@username|tg_id&gt; &lt;amount&gt; - Add coins
 /setgems &lt;@username|tg_id&gt; &lt;amount&gt; - Set gems
@@ -647,7 +647,7 @@ func (b *AdminBot) executeBroadcast(msg *tgbotapi.Message) {
 	b.bot.Send(reply)
 }
 
-// handleUsers returns list of all users with block status
+// handleUsers returns list of all users
 func (b *AdminBot) handleUsers(ctx context.Context, args string) string {
 	page := 1
 	if args != "" {
@@ -671,13 +671,7 @@ func (b *AdminBot) handleUsers(ctx context.Context, args string) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("<b>Users (page %d, total: %d)</b>\n\n", page, total))
 
-	for _, u := range users {
-		// Check if user blocked the bot
-		status := "✅"
-		if !b.canSendToUser(u.TgID) {
-			status = "❌"
-		}
-
+	for i, u := range users {
 		username := u.Username
 		if username == "" {
 			username = u.FirstName
@@ -686,7 +680,8 @@ func (b *AdminBot) handleUsers(ctx context.Context, args string) string {
 			username = fmt.Sprintf("id:%d", u.TgID)
 		}
 
-		sb.WriteString(fmt.Sprintf("%s @%s | 💎%d | 🪙%d\n", status, username, u.Gems, u.Coins))
+		num := offset + i + 1
+		sb.WriteString(fmt.Sprintf("%d. @%s | 💎%d | 🪙%d\n", num, username, u.Gems, u.Coins))
 	}
 
 	totalPages := (total + limit - 1) / limit
@@ -695,18 +690,6 @@ func (b *AdminBot) handleUsers(ctx context.Context, args string) string {
 	}
 
 	return sb.String()
-}
-
-// canSendToUser checks if bot can send messages to user
-func (b *AdminBot) canSendToUser(tgID int64) bool {
-	// Try to get chat info - if it fails, user blocked the bot
-	chat, err := b.bot.GetChat(tgbotapi.ChatInfoConfig{
-		ChatConfig: tgbotapi.ChatConfig{ChatID: tgID},
-	})
-	if err != nil {
-		return false
-	}
-	return chat.ID != 0
 }
 
 func (b *AdminBot) handleUserGames(ctx context.Context, args string) string {
