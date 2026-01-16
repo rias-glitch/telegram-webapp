@@ -229,7 +229,7 @@ func (r *UserRepository) GetMonthlyTop(ctx context.Context, limit int) ([]TopUse
 		       u.gems, COALESCE(u.coins, 0), u.created_at, COALESCE(w.won, 0) as won_amount
 		FROM users u
 		LEFT JOIN (
-			SELECT user_id, SUM(CASE WHEN won THEN win_amount ELSE 0 END) as won
+			SELECT user_id, SUM(CASE WHEN result = 'win' THEN win_amount ELSE 0 END) as won
 			FROM game_history
 			WHERE created_at >= date_trunc('month', CURRENT_DATE)
 			GROUP BY user_id
@@ -266,7 +266,7 @@ func (r *UserRepository) GetUserRank(ctx context.Context, userID int64) (int, in
 	var wonAmount int64
 	err := r.db.QueryRow(ctx, `
 		WITH user_wins AS (
-			SELECT user_id, SUM(CASE WHEN won THEN win_amount ELSE 0 END) as won
+			SELECT user_id, SUM(CASE WHEN result = 'win' THEN win_amount ELSE 0 END) as won
 			FROM game_history
 			WHERE created_at >= date_trunc('month', CURRENT_DATE)
 			GROUP BY user_id

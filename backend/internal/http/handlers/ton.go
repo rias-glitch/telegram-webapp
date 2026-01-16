@@ -198,11 +198,18 @@ func (h *TonHandler) GetDepositInfo(c *gin.Context) {
 		return
 	}
 
+	// Convert platform wallet to user-friendly format for TON Connect
+	platformAddress := h.PlatformWallet
+	userFriendlyAddr, err := ton.RawToUserFriendly(h.PlatformWallet, false)
+	if err == nil {
+		platformAddress = userFriendlyAddr
+	}
+
 	// Generate unique memo for this user
 	memo := fmt.Sprintf("deposit_%d", userID)
 
 	c.JSON(http.StatusOK, domain.DepositInfo{
-		PlatformAddress: h.PlatformWallet,
+		PlatformAddress: platformAddress,
 		Memo:            memo,
 		MinAmountTON:    fmt.Sprintf("%.2f", ton.NanoToTON(ton.MinDepositNano)),
 		ExchangeRate:    ton.CoinsPerTON, // 10 coins per TON

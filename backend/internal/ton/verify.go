@@ -181,3 +181,81 @@ func NormalizeAddress(address string) (string, error) {
 
 	return "", errors.New("unknown address format")
 }
+
+// RawToUserFriendly converts raw address (0:xxx) to user-friendly format (EQ.../UQ...)
+// bounceable=true means the address starts with EQ (for smart contracts)
+// bounceable=false means the address starts with UQ (for wallets)
+func RawToUserFriendly(rawAddress string, bounceable bool) (string, error) {
+	// Parse raw address format: workchain:hash
+	var workchain int8
+	var hashHex string
+
+	if len(rawAddress) >= 66 && rawAddress[0:2] == "0:" {
+		workchain = 0
+		hashHex = rawAddress[2:]
+	} else if len(rawAddress) >= 67 && rawAddress[0:3] == "-1:" {
+		workchain = -1
+		hashHex = rawAddress[3:]
+	} else {
+		// Maybe it's already user-friendly format
+		if len(rawAddress) == 48 {
+			return rawAddress, nil
+		}
+		return "", errors.New("invalid raw address format")
+	}
+
+	// Decode hash from hex
+	hashBytes, err := hex.DecodeString(hashHex)
+	if err != nil {
+		return "", fmt.Errorf("invalid hash hex: %w", err)
+	}
+
+	if len(hashBytes) != 32 {
+		return "", errors.New("invalid hash length")
+	}
+
+	// Build user-friendly address
+	// Format: 1 byte flag + 1 byte workchain + 32 bytes hash + 2 bytes CRC16
+	data := make([]byte, 34)
+
+	// Flag byte: 0x11 for bounceable (EQ), 0x51 for non-bounceable (UQ)
+	if bounceable {
+		data[0] = 0x11
+	} else {
+		data[0] = 0x51
+	}
+
+	// Workchain byte
+	data[1] = byte(workchain)
+
+	// Copy hash
+	copy(data[2:], hashBytes)
+
+	// Calculate CRC16
+	crc := crc16(data)
+
+	// Build final address: data + CRC
+	result := make([]byte, 36)
+	copy(result, data)
+	result[34] = byte(crc >> 8)
+	result[35] = byte(crc & 0xFF)
+
+	// Encode as base64url (no padding)
+	return base64.URLEncoding.EncodeToString(result), nil
+}
+
+// crc16 calculates CRC16-XMODEM
+func crc16(data []byte) uint16 {
+	crc := uint16(0)
+	for _, b := range data {
+		crc ^= uint16(b) << 8
+		for i := 0; i < 8; i++ {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ 0x1021
+			} else {
+				crc <<= 1
+			}
+		}
+	}
+	return crc
+}
