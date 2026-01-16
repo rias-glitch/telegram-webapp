@@ -11,7 +11,6 @@ RUN apk add --no-cache ca-certificates
 COPY --from=build /bin/app /bin/app
 COPY --from=build /bin/migrate_apply /bin/migrate_apply
 COPY --from=build /app/internal/migrations /app/internal/migrations
-COPY .env.example /app/.env.example
 COPY entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
 WORKDIR /app
