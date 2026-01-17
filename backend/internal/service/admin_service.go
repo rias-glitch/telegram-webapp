@@ -138,6 +138,9 @@ type UserInfo struct {
 func (s *AdminService) GetUser(ctx context.Context, identifier string) (*UserInfo, error) {
 	var user UserInfo
 
+	// Remove @ if present (for username search)
+	identifier = strings.TrimPrefix(identifier, "@")
+
 	// Try to find by ID first, then by tg_id, then by username
 	err := s.db.QueryRow(ctx, `
 		SELECT id, tg_id, username, first_name, gems, coins, created_at
