@@ -6,9 +6,9 @@ import { playRPS } from '../../api/games'
 
 const BET_PRESETS = [10, 50, 100, 500]
 const MOVES = [
-  { id: 'rock', icon: '🪨', label: 'Rock' },
-  { id: 'paper', icon: '📄', label: 'Paper' },
-  { id: 'scissors', icon: '✂️', label: 'Scissors' },
+  { id: 'rock', icon: '🪨', label: 'Камень' },
+  { id: 'paper', icon: '📄', label: 'Бумага' },
+  { id: 'scissors', icon: '✂️', label: 'Ножницы' },
 ]
 
 export function RPSGame({ user, onClose, onResult, embedded = false }) {
@@ -46,9 +46,9 @@ export function RPSGame({ user, onClose, onResult, embedded = false }) {
 
   const getResultText = () => {
     if (!result) return ''
-    if (result.result === 1) return 'YOU WON!'
-    if (result.result === 0) return 'DRAW'
-    return 'YOU LOST'
+    if (result.result === 1) return 'ПОБЕДА!'
+    if (result.result === 0) return 'НИЧЬЯ'
+    return 'ПРОИГРЫШ'
   }
 
   const getResultColor = () => {
@@ -67,12 +67,12 @@ export function RPSGame({ user, onClose, onResult, embedded = false }) {
           <div className="flex items-center justify-center gap-4 py-4">
             <div className="text-center">
               <div className="text-5xl mb-2">{getMoveIcon(result.move)}</div>
-              <div className="text-sm text-white/60">You</div>
+              <div className="text-sm text-white/60">Ты</div>
             </div>
             <div className="text-2xl text-white/40">VS</div>
             <div className="text-center">
               <div className="text-5xl mb-2">{getMoveIcon(result.bot)}</div>
-              <div className="text-sm text-white/60">Bot</div>
+              <div className="text-sm text-white/60">Бот</div>
             </div>
           </div>
         )}
@@ -84,9 +84,9 @@ export function RPSGame({ user, onClose, onResult, embedded = false }) {
               {getResultText()}
             </div>
             <div className="text-white/60">
-              {result.result === 1 && `+${result.awarded} gems`}
-              {result.result === -1 && `-${bet} gems`}
-              {result.result === 0 && 'Bet returned'}
+              {result.result === 1 && `+${result.awarded} гемов`}
+              {result.result === -1 && `-${bet} гемов`}
+              {result.result === 0 && 'Ставка возвращена'}
             </div>
           </div>
         )}
@@ -99,7 +99,7 @@ export function RPSGame({ user, onClose, onResult, embedded = false }) {
         {!result && (
           <>
             <div className="space-y-2">
-              <label className="text-sm text-white/60">Bet amount</label>
+              <label className="text-sm text-white/60">Сумма ставки</label>
               <Input
                 type="number"
                 value={bet}
@@ -125,11 +125,11 @@ export function RPSGame({ user, onClose, onResult, embedded = false }) {
             </div>
 
             <div className="text-center text-white/60 text-sm">
-              Balance: {user?.gems?.toLocaleString() || 0} gems
+              Баланс: {user?.gems?.toLocaleString() || 0} гемов
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-white/60 text-center block">Choose your move</label>
+              <label className="text-sm text-white/60 text-center block">Выбери свой ход</label>
               <div className="grid grid-cols-3 gap-3">
                 {MOVES.map((move) => (
                   <button
@@ -151,17 +151,17 @@ export function RPSGame({ user, onClose, onResult, embedded = false }) {
       {result && (
         <div className="flex gap-3">
           <Button variant="secondary" onClick={onClose} className="flex-1">
-            {embedded ? 'Back' : 'Close'}
+            {embedded ? 'Назад' : 'Закрыть'}
           </Button>
           <Button onClick={playAgain} className="flex-1">
-            Play Again
+            Играть снова
           </Button>
         </div>
       )}
 
       {!result && !embedded && (
         <Button variant="secondary" onClick={onClose} className="w-full">
-          Cancel
+          Отмена
         </Button>
       )}
     </div>
@@ -172,7 +172,7 @@ export function RPSGame({ user, onClose, onResult, embedded = false }) {
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Rock Paper Scissors">
+    <Modal isOpen={true} onClose={onClose} title="Камень Ножницы Бумага">
       {gameContent}
     </Modal>
   )

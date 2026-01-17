@@ -64,10 +64,10 @@ export function MinesGame({ user, onClose, onResult, embedded = false }) {
         {result && !result.error && (
           <div className="text-center space-y-2">
             <div className={`text-2xl font-bold ${result.win ? 'text-success' : 'text-danger'}`}>
-              {result.win ? 'SAFE!' : 'BOOM!'}
+              {result.win ? 'БЕЗОПАСНО!' : 'БУМ!'}
             </div>
             <div className="text-white/60">
-              {result.win ? `+${result.awarded} gems` : `-${bet} gems`}
+              {result.win ? `+${result.awarded} гемов` : `-${bet} гемов`}
             </div>
           </div>
         )}
@@ -91,14 +91,14 @@ export function MinesGame({ user, onClose, onResult, embedded = false }) {
         </div>
 
         <div className="text-center text-white/40 text-xs">
-          4 mines hidden in 12 cells. Pick a safe one!
+          4 мины спрятаны в 12 ячейках. Выбери безопасную!
         </div>
 
         {/* Bet controls */}
         {!result && (
           <>
             <div className="space-y-2">
-              <label className="text-sm text-white/60">Bet amount</label>
+              <label className="text-sm text-white/60">Сумма ставки</label>
               <Input
                 type="number"
                 value={bet}
@@ -124,7 +124,7 @@ export function MinesGame({ user, onClose, onResult, embedded = false }) {
             </div>
 
             <div className="text-center text-white/60 text-sm">
-              Balance: {user?.gems?.toLocaleString() || 0} gems
+              Баланс: {user?.gems?.toLocaleString() || 0} гемов
             </div>
           </>
         )}
@@ -134,15 +134,15 @@ export function MinesGame({ user, onClose, onResult, embedded = false }) {
         {result ? (
           <>
             <Button variant="secondary" onClick={onClose} className="flex-1">
-              {embedded ? 'Back' : 'Close'}
+              {embedded ? 'Назад' : 'Закрыть'}
             </Button>
             <Button onClick={playAgain} className="flex-1">
-              Play Again
+              Играть снова
             </Button>
           </>
         ) : !embedded ? (
           <Button variant="secondary" onClick={onClose} className="w-full">
-            Cancel
+            Отмена
           </Button>
         ) : null}
       </div>

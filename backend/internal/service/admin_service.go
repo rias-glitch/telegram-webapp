@@ -141,12 +141,23 @@ func (s *AdminService) GetUser(ctx context.Context, identifier string) (*UserInf
 	// Remove @ if present (for username search)
 	identifier = strings.TrimPrefix(identifier, "@")
 
-	// Try to find by ID first, then by tg_id, then by username
-	err := s.db.QueryRow(ctx, `
-		SELECT id, tg_id, username, first_name, gems, coins, created_at
-		FROM users
-		WHERE id::text = $1 OR tg_id::text = $1 OR LOWER(username) = LOWER($1)
-	`, identifier).Scan(&user.ID, &user.TgID, &user.Username, &user.FirstName, &user.Gems, &user.Coins, &user.CreatedAt)
+	// Try to find by tg_id first (if numeric), then by username
+	var err error
+	if tgID, parseErr := strconv.ParseInt(identifier, 10, 64); parseErr == nil {
+		// Numeric - search by tg_id
+		err = s.db.QueryRow(ctx, `
+			SELECT id, tg_id, COALESCE(username, ''), COALESCE(first_name, ''), gems, COALESCE(coins, 0), created_at
+			FROM users
+			WHERE tg_id = $1
+		`, tgID).Scan(&user.ID, &user.TgID, &user.Username, &user.FirstName, &user.Gems, &user.Coins, &user.CreatedAt)
+	} else {
+		// Non-numeric - search by username
+		err = s.db.QueryRow(ctx, `
+			SELECT id, tg_id, COALESCE(username, ''), COALESCE(first_name, ''), gems, COALESCE(coins, 0), created_at
+			FROM users
+			WHERE LOWER(username) = LOWER($1)
+		`, identifier).Scan(&user.ID, &user.TgID, &user.Username, &user.FirstName, &user.Gems, &user.Coins, &user.CreatedAt)
+	}
 
 	if err != nil {
 		return nil, err

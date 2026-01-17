@@ -159,13 +159,13 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎁</span>
             <div>
-              <h3 className="font-bold">Invite Friends</h3>
-              <p className="text-white/60 text-sm">Get 500 gems per friend!</p>
+              <h3 className="font-bold">Пригласи друзей</h3>
+              <p className="text-white/60 text-sm">Получи 500 гемов за друга!</p>
             </div>
           </div>
           {referralStats && (
             <div className="text-right">
-              <div className="text-sm text-white/60">Invited</div>
+              <div className="text-sm text-white/60">Приглашено</div>
               <div className="font-bold text-lg">{referralStats.total_referrals || 0}</div>
             </div>
           )}
@@ -176,7 +176,7 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
             onClick={handleShare}
             className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
           >
-            {loadingReferral ? 'Loading...' : (referralLink?.link ? 'Share Invite Link' : 'Share (tap to debug)')}
+            {loadingReferral ? 'Загрузка...' : (referralLink?.link ? 'Поделиться ссылкой' : 'Поделиться')}
           </Button>
 
           {referralLink?.link && (
@@ -191,7 +191,7 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
 
           {referralStats?.total_earned > 0 && (
             <div className="text-center text-sm text-white/60">
-              Total earned: <span className="text-success font-semibold">{referralStats.total_earned} 💎</span>
+              Всего заработано: <span className="text-success font-semibold">{referralStats.total_earned} 💎</span>
             </div>
           )}
         </div>
@@ -209,9 +209,9 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
                 : 'bg-white/10 text-white/60 hover:bg-white/20'
             }`}
           >
-            {tab === 'stats' && 'Stats'}
-            {tab === 'history' && 'History'}
-            {tab === 'quests' && 'Quests'}
+            {tab === 'stats' && 'Статистика'}
+            {tab === 'history' && 'История'}
+            {tab === 'quests' && 'Задания'}
           </button>
         ))}
       </div>
@@ -219,19 +219,19 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
       {/* Stats tab */}
       {activeTab === 'stats' && stats && (
         <Card>
-          <CardTitle className="mb-4">Monthly Statistics</CardTitle>
+          <CardTitle className="mb-4">Статистика за месяц</CardTitle>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center p-3 bg-white/5 rounded-xl">
               <div className="text-2xl font-bold">{stats.total_games || 0}</div>
-              <div className="text-white/60 text-sm">Games</div>
+              <div className="text-white/60 text-sm">Игр</div>
             </div>
             <div className="text-center p-3 bg-white/5 rounded-xl">
               <div className="text-2xl font-bold text-success">{stats.wins || 0}</div>
-              <div className="text-white/60 text-sm">Wins</div>
+              <div className="text-white/60 text-sm">Побед</div>
             </div>
             <div className="text-center p-3 bg-white/5 rounded-xl">
               <div className="text-2xl font-bold text-danger">{stats.losses || 0}</div>
-              <div className="text-white/60 text-sm">Losses</div>
+              <div className="text-white/60 text-sm">Поражений</div>
             </div>
             <div className="text-center p-3 bg-white/5 rounded-xl">
               <div className="text-2xl font-bold">
@@ -239,16 +239,16 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
                   ? Math.round((stats.wins / stats.total_games) * 100)
                   : 0}%
               </div>
-              <div className="text-white/60 text-sm">Win Rate</div>
+              <div className="text-white/60 text-sm">Винрейт</div>
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-white/10">
             <div className="flex justify-between">
-              <span className="text-white/60">Total Won</span>
+              <span className="text-white/60">Всего выиграно</span>
               <span className="text-success font-bold">+{stats.total_won?.toLocaleString() || 0}</span>
             </div>
             <div className="flex justify-between mt-2">
-              <span className="text-white/60">Total Lost</span>
+              <span className="text-white/60">Всего проиграно</span>
               <span className="text-danger font-bold">-{stats.total_lost?.toLocaleString() || 0}</span>
             </div>
           </div>
@@ -261,7 +261,7 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
           {(!games || games.length === 0) ? (
             <Card className="text-center py-8">
               <div className="text-4xl mb-2">🎮</div>
-              <p className="text-white/60">No games yet</p>
+              <p className="text-white/60">Пока нет игр</p>
             </Card>
           ) : (
             games.slice(0, 20).map((game) => (
@@ -293,7 +293,7 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
           {(!quests || quests.length === 0) ? (
             <Card className="text-center py-8">
               <div className="text-4xl mb-2">📋</div>
-              <p className="text-white/60">No active quests</p>
+              <p className="text-white/60">Нет активных заданий</p>
             </Card>
           ) : (
             quests.map((q) => (
@@ -312,7 +312,7 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
                 {/* Progress bar */}
                 <div className="mt-3">
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-white/60">Progress</span>
+                    <span className="text-white/60">Прогресс</span>
                     <span>{q.current_count || 0}/{q.target_count}</span>
                   </div>
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
@@ -331,13 +331,13 @@ export function ProfilePage({ user, games, stats, quests, fetchProfile }) {
                     size="sm"
                     className="w-full mt-3"
                   >
-                    {claiming === q.user_quest_id ? 'Claiming...' : 'Claim Reward'}
+                    {claiming === q.user_quest_id ? 'Получаем...' : 'Получить награду'}
                   </Button>
                 )}
 
                 {q.reward_claimed && (
                   <div className="text-center text-success text-sm mt-3">
-                    Reward claimed!
+                    Награда получена!
                   </div>
                 )}
               </Card>

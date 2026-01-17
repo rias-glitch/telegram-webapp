@@ -35,7 +35,7 @@ export function TopPage({ user }) {
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="text-4xl mb-2 animate-pulse-custom">🏆</div>
-          <p className="text-white/60">Loading leaderboard...</p>
+          <p className="text-white/60">Загрузка рейтинга...</p>
         </div>
       </div>
     )
@@ -53,14 +53,14 @@ export function TopPage({ user }) {
   return (
     <div className="space-y-4 animate-fadeIn pb-20">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Top 100</h1>
-        <span className="text-white/60 text-sm">Monthly</span>
+        <h1 className="text-2xl font-bold">Топ 100</h1>
+        <span className="text-white/60 text-sm">За месяц</span>
       </div>
 
       {leaderboard.length === 0 ? (
         <Card className="text-center py-8">
           <div className="text-4xl mb-2">🏆</div>
-          <p className="text-white/60">No players yet this month</p>
+          <p className="text-white/60">Нет игроков за этот месяц</p>
         </Card>
       ) : (
         <div className="space-y-2">
@@ -96,7 +96,7 @@ export function TopPage({ user }) {
                   <span>+{entry.won_amount?.toLocaleString()}</span>
                   <span className="text-sm">💎</span>
                 </div>
-                <div className="text-white/40 text-xs">won this month</div>
+                <div className="text-white/40 text-xs">выиграно за месяц</div>
               </div>
             </Card>
           ))}
@@ -113,11 +113,11 @@ export function TopPage({ user }) {
                   <span className="text-lg">👤</span>
                 </div>
                 <div>
-                  <div className="font-semibold">You</div>
+                  <div className="font-semibold">Вы</div>
                   <div className="text-white/60 text-sm">
                     {myRank.won_amount > 0
-                      ? `+${myRank.won_amount.toLocaleString()} won`
-                      : 'No wins yet'}
+                      ? `+${myRank.won_amount.toLocaleString()} выиграно`
+                      : 'Пока нет побед'}
                   </div>
                 </div>
               </div>
@@ -125,7 +125,7 @@ export function TopPage({ user }) {
                 <div className="text-2xl font-bold text-primary">
                   #{myRank.rank || '—'}
                 </div>
-                <div className="text-white/40 text-xs">your rank</div>
+                <div className="text-white/40 text-xs">ваш ранг</div>
               </div>
             </div>
           </Card>

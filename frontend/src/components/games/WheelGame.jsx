@@ -97,7 +97,7 @@ export function WheelGame({ user, onClose, onResult }) {
   const extendedSegments = [...segments, ...segments, ...segments, ...segments, ...segments]
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Wheel of Fortune">
+    <Modal isOpen={true} onClose={onClose} title="Колесо удачи">
       <div className="space-y-6">
         {/* Slot machine reel */}
         <div className="relative">
@@ -172,10 +172,10 @@ export function WheelGame({ user, onClose, onResult }) {
               {result.label}
             </div>
             <div className={`text-2xl font-bold ${result.multiplier >= 1 ? 'text-success' : 'text-danger'}`}>
-              {result.win_amount > bet ? '+' : ''}{result.win_amount - bet} gems
+              {result.win_amount > bet ? '+' : ''}{result.win_amount - bet} гемов
             </div>
             <div className="text-white/60">
-              {result.multiplier}x multiplier
+              множитель {result.multiplier}x
             </div>
           </div>
         )}
@@ -207,7 +207,7 @@ export function WheelGame({ user, onClose, onResult }) {
         {!result && (
           <>
             <div className="space-y-2">
-              <label className="text-sm text-white/60">Bet amount</label>
+              <label className="text-sm text-white/60">Сумма ставки</label>
               <Input
                 type="number"
                 value={bet}
@@ -233,7 +233,7 @@ export function WheelGame({ user, onClose, onResult }) {
             </div>
 
             <div className="text-center text-white/60 text-sm">
-              Balance: {user?.gems?.toLocaleString() || 0} gems
+              Баланс: {user?.gems?.toLocaleString() || 0} гемов
             </div>
           </>
         )}
@@ -243,23 +243,23 @@ export function WheelGame({ user, onClose, onResult }) {
           {result ? (
             <>
               <Button variant="secondary" onClick={onClose} className="flex-1">
-                Close
+                Закрыть
               </Button>
               <Button onClick={playAgain} className="flex-1">
-                Spin Again
+                Крутить снова
               </Button>
             </>
           ) : (
             <>
               <Button variant="secondary" onClick={onClose} className="flex-1">
-                Cancel
+                Отмена
               </Button>
               <Button
                 onClick={handleSpin}
                 disabled={loading || spinning || bet <= 0 || bet > (user?.gems || 0)}
                 className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
               >
-                {spinning ? '🎰 Spinning...' : `🎰 Spin (${bet})`}
+                {spinning ? '🎰 Крутим...' : `🎰 Крутить (${bet})`}
               </Button>
             </>
           )}

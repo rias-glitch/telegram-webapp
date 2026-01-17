@@ -50,7 +50,7 @@ export function MinesPage({ user, setUser }) {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <span>💣</span> Mines
           </h1>
-          <p className="text-white/60 text-sm">Avoid the bombs to win x2</p>
+          <p className="text-white/60 text-sm">Избегай бомб и выиграй x2</p>
         </div>
       </div>
 
@@ -66,7 +66,7 @@ export function MinesPage({ user, setUser }) {
         >
           <div className="flex items-center justify-center gap-2">
             <span>🤖</span>
-            <span>vs Bot</span>
+            <span>Против бота</span>
           </div>
         </button>
         <button
@@ -79,7 +79,7 @@ export function MinesPage({ user, setUser }) {
         >
           <div className="flex items-center justify-center gap-2">
             <span>⚔️</span>
-            <span>vs Player</span>
+            <span>Против игрока</span>
           </div>
         </button>
       </div>
@@ -99,7 +99,7 @@ export function MinesPage({ user, setUser }) {
         <div className="space-y-4">
           {/* Currency selection */}
           <Card>
-            <CardTitle className="mb-3">Select Currency</CardTitle>
+            <CardTitle className="mb-3">Выбери валюту</CardTitle>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => { setSelectedCurrency('gems'); setSelectedBet(100); }}
@@ -130,7 +130,7 @@ export function MinesPage({ user, setUser }) {
 
           {/* Bet selection */}
           <Card>
-            <CardTitle className="mb-3">Select Bet</CardTitle>
+            <CardTitle className="mb-3">Выбери ставку</CardTitle>
             <div className="grid grid-cols-4 gap-2 mb-4">
               {betPresets.map((bet) => (
                 <button
@@ -150,7 +150,7 @@ export function MinesPage({ user, setUser }) {
               ))}
             </div>
             <div className="flex items-center justify-between text-sm text-white/60">
-              <span>Your balance:</span>
+              <span>Ваш баланс:</span>
               <span className="flex items-center gap-1">
                 {selectedCurrency === 'coins' ? '🪙' : '💎'}
                 <span className="font-semibold text-white">{getBalance().toLocaleString()}</span>
@@ -170,7 +170,7 @@ export function MinesPage({ user, setUser }) {
           >
             <span className="flex items-center justify-center gap-2">
               <span>⚔️</span>
-              <span>Find Opponent</span>
+              <span>Найти соперника</span>
               <span className="opacity-60">
                 ({selectedBet} {selectedCurrency === 'coins' ? '🪙' : '💎'})
               </span>
@@ -178,7 +178,7 @@ export function MinesPage({ user, setUser }) {
           </Button>
 
           <p className="text-center text-white/40 text-sm">
-            Win x2 your bet. You'll be matched with players betting the same amount and currency.
+            Выиграй x2 от ставки. Ты будешь сопоставлен с игроками с такой же ставкой и валютой.
           </p>
         </div>
       )}

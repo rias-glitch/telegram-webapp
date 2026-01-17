@@ -104,21 +104,21 @@ export function GamesPage({ user, setUser, addGems }) {
 
   return (
     <div className='space-y-4 animate-fadeIn'>
-      <h1 className='text-2xl font-bold'>Games</h1>
+      <h1 className='text-2xl font-bold'>Игры</h1>
 
       {user && user.gems < 100 && (
         <Card className='bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-yellow-500/30'>
           <div className='flex items-center justify-between'>
             <div>
-              <p className='font-semibold text-yellow-400'>Low balance!</p>
-              <p className='text-sm text-white/60'>Get 10,000 free gems</p>
+              <p className='font-semibold text-yellow-400'>Мало средств!</p>
+              <p className='text-sm text-white/60'>Получи 10,000 бесплатных гемов</p>
             </div>
             <Button
               onClick={handleClaimBonus}
               disabled={claimingBonus}
               className='bg-yellow-500 hover:bg-yellow-600 text-black font-bold'
             >
-              {claimingBonus ? 'Claiming...' : 'Claim Bonus'}
+              {claimingBonus ? 'Получаем...' : 'Получить бонус'}
             </Button>
           </div>
         </Card>

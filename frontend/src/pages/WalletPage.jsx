@@ -227,12 +227,12 @@ export function WalletPage({ user }) {
 
   return (
     <div className='space-y-4 animate-fadeIn'>
-      <h1 className='text-2xl font-bold'>Wallet</h1>
+      <h1 className='text-2xl font-bold'>Кошелёк</h1>
 
       {/* Balance card */}
       <Card className='bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30'>
         <div className='text-center'>
-          <div className='text-white/60 text-sm mb-1'>Your Coins</div>
+          <div className='text-white/60 text-sm mb-1'>Ваши Coins</div>
           <div className='text-4xl font-bold flex items-center justify-center gap-2'>
             <span>🪙</span>
             <span>{user?.coins?.toLocaleString() || 0}</span>
@@ -250,15 +250,15 @@ export function WalletPage({ user }) {
         <Card>
           <div className='flex items-center justify-between'>
             <div>
-              <div className='text-white/60 text-sm'>Connected Wallet</div>
+              <div className='text-white/60 text-sm'>Подключённый кошелёк</div>
               <div className='font-mono text-sm'>
                 {shortenAddress(wallet?.address || tonWallet?.account?.address)}
               </div>
             </div>
             <div className='flex items-center gap-2'>
-              <span className='text-success text-sm'>Connected</span>
+              <span className='text-success text-sm'>Подключено</span>
               <Button size='sm' variant='secondary' onClick={handleDisconnect}>
-                Disconnect
+                Отключить
               </Button>
             </div>
           </div>
@@ -267,10 +267,10 @@ export function WalletPage({ user }) {
         <Card className='text-center py-6'>
           <div className='text-4xl mb-3'>🔗</div>
           <p className='text-white/60 mb-4'>
-            Подключи свой TON кошелек для покупки и вывода coins
+            Подключи свой TON кошелёк для покупки и вывода coins
           </p>
           <Button onClick={handleConnect} className='mx-auto'>
-            {connecting ? 'Connecting...' : 'Connect Wallet'}
+            {connecting ? 'Подключение...' : 'Подключить кошелёк'}
           </Button>
           <p className='text-xs text-white/40 mt-3'>
             Tonkeeper, Tonhub, OpenMask, MyTonWallet
@@ -282,17 +282,21 @@ export function WalletPage({ user }) {
       {isConnected && (
         <>
           <div className='flex gap-2'>
-            {['deposit', 'withdraw', 'history'].map(tab => (
+            {[
+              { key: 'deposit', label: 'Пополнение' },
+              { key: 'withdraw', label: 'Вывод' },
+              { key: 'history', label: 'История' },
+            ].map(tab => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2 rounded-xl font-medium transition-colors capitalize ${
-                  activeTab === tab
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 py-2 rounded-xl font-medium transition-colors ${
+                  activeTab === tab.key
                     ? 'bg-primary text-white'
                     : 'bg-white/10 text-white/60 hover:bg-white/20'
                 }`}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -316,13 +320,13 @@ export function WalletPage({ user }) {
                   {depositInfo.error || 'Platform wallet not configured'}
                 </p>
                 <p className='text-white/40 text-xs mt-4'>
-                  Contact support or check server configuration
+                  Свяжитесь с поддержкой или проверьте конфигурацию сервера
                 </p>
                 <button
                   onClick={() => fetchData()}
                   className='mt-4 px-4 py-2 bg-primary rounded-lg hover:bg-primary/80 transition-colors'
                 >
-                  Retry
+                  Повторить
                 </button>
               </Card>
             )}
@@ -426,7 +430,7 @@ export function WalletPage({ user }) {
             )}
 
           {/* Withdraw tab */}
-          {activeTab === 'Выводы' && (
+          {activeTab === 'withdraw' && (
             <Card>
               <CardTitle className='mb-4'>Вывести TON</CardTitle>
               <div className='space-y-4'>
@@ -508,7 +512,7 @@ export function WalletPage({ user }) {
           )}
 
           {/* History tab */}
-          {activeTab === 'История' && (
+          {activeTab === 'history' && (
             <div className='space-y-3'>
               {deposits.length === 0 && withdrawals.length === 0 ? (
                 <Card className='text-center py-8'>
@@ -519,14 +523,14 @@ export function WalletPage({ user }) {
                 <>
                   {/* Pending withdrawals */}
                   {withdrawals
-                    .filter(w => w.status === 'в ожидании')
+                    .filter(w => w.status === 'pending')
                     .map(w => (
                       <Card key={`w-${w.id}`} className='border-yellow-500/30'>
                         <div className='flex items-center justify-between'>
                           <div>
                             <div className='flex items-center gap-2'>
                               <span>📤</span>
-                              <span className='font-medium'>Выводы</span>
+                              <span className='font-medium'>Вывод</span>
                               <span className='text-yellow-400 text-xs'>
                                 В ожидании
                               </span>
@@ -563,8 +567,8 @@ export function WalletPage({ user }) {
                           <div>
                             <div className='flex items-center gap-2'>
                               <span>{tx.type === 'deposit' ? '📥' : '📤'}</span>
-                              <span className='font-medium capitalize'>
-                                {tx.type}
+                              <span className='font-medium'>
+                                {tx.type === 'deposit' ? 'Пополнение' : 'Вывод'}
                               </span>
                             </div>
                             <div className='text-white/40 text-xs'>

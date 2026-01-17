@@ -193,15 +193,15 @@ export function DiceGame({ user, onClose, onResult }) {
         {result && !result.error && (
           <div className="text-center space-y-2">
             <div className={`text-2xl font-bold ${result.won ? 'text-success' : 'text-danger'}`}>
-              {result.won ? 'YOU WON!' : 'YOU LOST'}
+              {result.won ? 'ПОБЕДА!' : 'ПРОИГРЫШ'}
             </div>
             <div className="text-white/60">
-              {result.won ? `+${result.win_amount}` : `-${bet}`} gems
+              {result.won ? `+${result.win_amount}` : `-${bet}`} гемов
             </div>
             <div className="text-sm text-white/40">
-              {result.mode === 'exact' && `Your pick: ${target} → Rolled: ${result.result}`}
-              {result.mode === 'low' && `Low (1-3) → Rolled: ${result.result}`}
-              {result.mode === 'high' && `High (4-6) → Rolled: ${result.result}`}
+              {result.mode === 'exact' && `Твой выбор: ${target} → Выпало: ${result.result}`}
+              {result.mode === 'low' && `Low (1-3) → Выпало: ${result.result}`}
+              {result.mode === 'high' && `High (4-6) → Выпало: ${result.result}`}
             </div>
           </div>
         )}
@@ -215,7 +215,7 @@ export function DiceGame({ user, onClose, onResult }) {
           <>
             {/* Game mode selection */}
             <div className="space-y-2">
-              <label className="text-sm text-white/60">Select game mode</label>
+              <label className="text-sm text-white/60">Выбери режим игры</label>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setMode('low')}
@@ -250,7 +250,7 @@ export function DiceGame({ user, onClose, onResult }) {
                   }`}
                 >
                   <div className="text-lg font-bold">Exact</div>
-                  <div className="text-xs opacity-80">Pick #</div>
+                  <div className="text-xs opacity-80">Выбор</div>
                   <div className="text-xs text-success">{multiplier}x</div>
                 </button>
               </div>
@@ -259,7 +259,7 @@ export function DiceGame({ user, onClose, onResult }) {
             {/* Pick your number (only for exact mode) */}
             {mode === 'exact' && (
               <div className="space-y-2">
-                <label className="text-sm text-white/60">Pick your number (1-6)</label>
+                <label className="text-sm text-white/60">Выбери число (1-6)</label>
                 <div className="grid grid-cols-6 gap-2">
                   {[1, 2, 3, 4, 5, 6].map((num) => (
                     <button
@@ -282,7 +282,7 @@ export function DiceGame({ user, onClose, onResult }) {
             {mode !== 'exact' && (
               <div className="bg-white/5 rounded-xl p-3 text-center">
                 <div className="text-sm text-white/60">
-                  {mode === 'low' ? 'Win if dice shows 1, 2, or 3' : 'Win if dice shows 4, 5, or 6'}
+                  {mode === 'low' ? 'Победа, если выпадет 1, 2 или 3' : 'Победа, если выпадет 4, 5 или 6'}
                 </div>
               </div>
             )}
@@ -290,18 +290,18 @@ export function DiceGame({ user, onClose, onResult }) {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4 text-center">
               <div className="bg-white/5 rounded-xl p-3">
-                <div className="text-white/60 text-sm">Win Chance</div>
+                <div className="text-white/60 text-sm">Шанс победы</div>
                 <div className="text-xl font-bold text-success">{winChance.toFixed(2)}%</div>
               </div>
               <div className="bg-white/5 rounded-xl p-3">
-                <div className="text-white/60 text-sm">Multiplier</div>
+                <div className="text-white/60 text-sm">Множитель</div>
                 <div className="text-xl font-bold text-primary">{multiplier}x</div>
               </div>
             </div>
 
             {/* Bet controls */}
             <div className="space-y-2">
-              <label className="text-sm text-white/60">Bet amount</label>
+              <label className="text-sm text-white/60">Сумма ставки</label>
               <Input
                 type="number"
                 value={bet}
@@ -327,8 +327,8 @@ export function DiceGame({ user, onClose, onResult }) {
             </div>
 
             <div className="flex justify-between text-sm text-white/60">
-              <span>Balance: {user?.gems?.toLocaleString() || 0}</span>
-              <span>Potential win: {Math.floor(bet * multiplier)}</span>
+              <span>Баланс: {user?.gems?.toLocaleString() || 0}</span>
+              <span>Возможный выигрыш: {Math.floor(bet * multiplier)}</span>
             </div>
           </>
         )}
@@ -338,23 +338,23 @@ export function DiceGame({ user, onClose, onResult }) {
           {result ? (
             <>
               <Button variant="secondary" onClick={onClose} className="flex-1">
-                Close
+                Закрыть
               </Button>
               <Button onClick={playAgain} className="flex-1">
-                Roll Again
+                Бросить снова
               </Button>
             </>
           ) : (
             <>
               <Button variant="secondary" onClick={onClose} className="flex-1">
-                Cancel
+                Отмена
               </Button>
               <Button
                 onClick={handleRoll}
                 disabled={loading || rolling || bet <= 0 || bet > (user?.gems || 0)}
                 className="flex-1"
               >
-                {rolling ? 'Rolling...' : `Roll (${bet})`}
+                {rolling ? 'Бросаем...' : `Бросить (${bet})`}
               </Button>
             </>
           )}

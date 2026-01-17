@@ -106,7 +106,7 @@ export function UpgradePage({ user, setUser }) {
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="text-4xl mb-2 animate-pulse-custom">⚡</div>
-          <p className="text-white/60">Loading...</p>
+          <p className="text-white/60">Загрузка...</p>
         </div>
       </div>
     )
@@ -117,7 +117,7 @@ export function UpgradePage({ user, setUser }) {
       <div className="text-center py-12">
         <div className="text-4xl mb-2">❌</div>
         <p className="text-danger">{error}</p>
-        <Button onClick={loadStatus} className="mt-4">Retry</Button>
+        <Button onClick={loadStatus} className="mt-4">Повторить</Button>
       </div>
     )
   }
@@ -129,13 +129,13 @@ export function UpgradePage({ user, setUser }) {
 
   return (
     <div className="space-y-4 animate-fadeIn">
-      <h1 className="text-2xl font-bold">Upgrade</h1>
+      <h1 className="text-2xl font-bold">Прокачка</h1>
 
       {/* GK Balance */}
       <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-yellow-500/30">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-white/60 text-sm">GK Balance</p>
+            <p className="text-white/60 text-sm">Баланс GK</p>
             <p className="text-2xl font-bold text-yellow-400">{gk.toLocaleString()}</p>
           </div>
           <div className="text-4xl">🔑</div>
@@ -149,7 +149,7 @@ export function UpgradePage({ user, setUser }) {
             <span className="text-4xl font-bold text-white">{level}</span>
           </div>
           <h2 className="text-xl font-bold mb-1">{LEVEL_NAMES[level - 1]}</h2>
-          <p className="text-white/60">Level {level}/10</p>
+          <p className="text-white/60">Уровень {level}/10</p>
 
           {/* Progress bar */}
           <div className="mt-4 h-2 bg-white/10 rounded-full overflow-hidden">
@@ -170,23 +170,23 @@ export function UpgradePage({ user, setUser }) {
               className="w-full"
               variant={canUpgrade ? 'primary' : 'secondary'}
             >
-              {upgrading ? 'Upgrading...' : (
+              {upgrading ? 'Прокачиваем...' : (
                 <>
-                  Upgrade to Level {level + 1}
+                  Прокачать до уровня {level + 1}
                   <span className="ml-2 text-yellow-400">{nextCost.toLocaleString()} GK</span>
                 </>
               )}
             </Button>
             {!canUpgrade && gk < nextCost && (
               <p className="text-center text-white/40 text-sm mt-2">
-                Need {(nextCost - gk).toLocaleString()} more GK
+                Нужно ещё {(nextCost - gk).toLocaleString()} GK
               </p>
             )}
           </div>
         ) : (
           <div className="mt-6 text-center">
             <span className="text-2xl">🏆</span>
-            <p className="text-success font-semibold mt-2">Max Level Reached!</p>
+            <p className="text-success font-semibold mt-2">Максимальный уровень достигнут!</p>
           </div>
         )}
       </Card>
@@ -195,16 +195,16 @@ export function UpgradePage({ user, setUser }) {
       <Card>
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <span>👥</span>
-          Referral Rewards
+          Награды за рефералов
         </h3>
 
         <div className="flex items-center justify-between mb-4 p-3 bg-white/5 rounded-xl">
           <div>
-            <p className="text-white/60 text-sm">People Invited</p>
+            <p className="text-white/60 text-sm">Приглашено</p>
             <p className="text-xl font-bold">{status?.total_referrals || 0}</p>
           </div>
           <div className="text-right">
-            <p className="text-white/60 text-sm">Total Earned</p>
+            <p className="text-white/60 text-sm">Всего заработано</p>
             <p className="text-xl font-bold text-yellow-400">{status?.referral_earnings?.toLocaleString() || 0} coins</p>
           </div>
         </div>
@@ -233,7 +233,7 @@ export function UpgradePage({ user, setUser }) {
                       {reached ? '✓' : t}
                     </div>
                     <div>
-                      <p className="font-medium">{t} referral{t > 1 ? 's' : ''}</p>
+                      <p className="font-medium">{t} реферал{t > 1 ? 'ов' : ''}</p>
                       <p className="text-sm text-yellow-400">+{reward.toLocaleString()} GK</p>
                     </div>
                   </div>
@@ -244,13 +244,13 @@ export function UpgradePage({ user, setUser }) {
                       disabled={isClaiming}
                       loading={isClaiming}
                     >
-                      Claim
+                      Забрать
                     </Button>
                   ) : reached ? (
-                    <span className="text-success text-sm">Claimed</span>
+                    <span className="text-success text-sm">Получено</span>
                   ) : (
                     <span className="text-white/40 text-sm">
-                      {t - (status?.total_referrals || 0)} more
+                      ещё {t - (status?.total_referrals || 0)}
                     </span>
                   )}
                 </div>
@@ -263,7 +263,7 @@ export function UpgradePage({ user, setUser }) {
       <Card>
         <h3 className="font-semibold mb-4 flex items-center gap-2">
           <span>📊</span>
-          Upgrade Costs
+          Стоимость прокачки
         </h3>
         <div className="grid grid-cols-2 gap-2">
           {status?.costs && Object.entries(status.costs)
@@ -294,16 +294,16 @@ export function UpgradePage({ user, setUser }) {
       <Card className="bg-white/5">
         <h3 className="font-semibold mb-3 flex items-center gap-2">
           <span>💡</span>
-          How to earn GK
+          Как заработать GK
         </h3>
         <ul className="text-white/60 text-sm space-y-2">
           <li className="flex items-start gap-2">
             <span>👥</span>
-            <span>Invite friends and earn GK when they join</span>
+            <span>Приглашай друзей и получай GK когда они присоединяются</span>
           </li>
           <li className="flex items-start gap-2">
             <span>💰</span>
-            <span>Earn 50% of withdrawal fees from your referrals</span>
+            <span>Получай 50% от комиссии за вывод твоих рефералов</span>
           </li>
         </ul>
       </Card>
