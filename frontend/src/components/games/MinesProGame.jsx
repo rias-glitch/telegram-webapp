@@ -118,19 +118,19 @@ export function MinesProGame({ user, onClose, onResult }) {
             {/* Stats bar */}
             <div className="flex justify-between items-center bg-white/5 rounded-xl p-3">
               <div>
-                <div className="text-xs text-white/60">Bet</div>
+                <div className="text-xs text-white/60">Ставка</div>
                 <div className="font-bold">{gameState.bet}</div>
               </div>
               <div>
-                <div className="text-xs text-white/60">Mines</div>
+                <div className="text-xs text-white/60">Мины</div>
                 <div className="font-bold">{gameState.mines_count}</div>
               </div>
               <div>
-                <div className="text-xs text-white/60">Multiplier</div>
+                <div className="text-xs text-white/60">Множитель</div>
                 <div className="font-bold text-primary">{gameState.multiplier?.toFixed(2)}x</div>
               </div>
               <div>
-                <div className="text-xs text-white/60">Win</div>
+                <div className="text-xs text-white/60">Выигрыш</div>
                 <div className="font-bold text-success">{gameState.potential_win}</div>
               </div>
             </div>
@@ -180,12 +180,12 @@ export function MinesProGame({ user, onClose, onResult }) {
             {gameOver && (
               <div className={`text-center py-4 rounded-xl ${won ? 'bg-success/20' : 'bg-danger/20'}`}>
                 <div className={`text-2xl font-bold ${won ? 'text-success' : 'text-danger'}`}>
-                  {won ? 'CASHED OUT!' : 'BOOM!'}
+                  {won ? 'ПОБЕДА!' : 'БАБАХ!'}
                 </div>
                 <div className="text-white/60">
                   {won
-                    ? `Won ${gameState.win_amount} gems (${gameState.multiplier?.toFixed(2)}x)`
-                    : `Lost ${gameState.bet} gems`
+                    ? `Выигрыш ${gameState.win_amount} гемов (${gameState.multiplier?.toFixed(2)}x)`
+                    : `Проигрыш ${gameState.bet} гемов`
                   }
                 </div>
               </div>
@@ -196,10 +196,10 @@ export function MinesProGame({ user, onClose, onResult }) {
               {gameOver ? (
                 <>
                   <Button variant="secondary" onClick={onClose} className="flex-1">
-                    Close
+                    Закрыть
                   </Button>
                   <Button onClick={handleNewGame} className="flex-1">
-                    New Game
+                    Новая игра
                   </Button>
                 </>
               ) : (
@@ -209,14 +209,14 @@ export function MinesProGame({ user, onClose, onResult }) {
                     onClick={onClose}
                     className="flex-1"
                   >
-                    Exit
+                    Выход
                   </Button>
                   <Button
                     onClick={handleCashout}
                     disabled={loading || revealedCells.length === 0}
                     className="flex-1 bg-success hover:bg-success/80"
                   >
-                    Cash Out 💎{gameState.potential_win}
+                    Забрать 💎{gameState.potential_win}
                   </Button>
                 </>
               )}
@@ -230,13 +230,13 @@ export function MinesProGame({ user, onClose, onResult }) {
             <div className="text-center py-8">
               <div className="text-6xl mb-4">💣</div>
               <p className="text-white/60">
-                Reveal gems, avoid mines. Cash out anytime!
+                Открывай гемы, избегай мин. Забирай выигрыш в любой момент!
               </p>
             </div>
 
             {/* Mines count */}
             <div className="space-y-2">
-              <label className="text-sm text-white/60">Number of mines</label>
+              <label className="text-sm text-white/60">Количество мин</label>
               <div className="flex gap-2">
                 {MINES_PRESETS.map((count) => (
                   <button
@@ -261,13 +261,13 @@ export function MinesProGame({ user, onClose, onResult }) {
                 className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
               />
               <div className="text-center text-sm text-white/40">
-                {minesCount} mines = higher risk, higher reward
+                {minesCount} мин = выше риск, больше награда
               </div>
             </div>
 
             {/* Bet controls */}
             <div className="space-y-2">
-              <label className="text-sm text-white/60">Bet amount</label>
+              <label className="text-sm text-white/60">Сумма ставки</label>
               <Input
                 type="number"
                 value={bet}
@@ -293,20 +293,20 @@ export function MinesProGame({ user, onClose, onResult }) {
             </div>
 
             <div className="text-center text-white/60 text-sm">
-              Balance: {user?.gems?.toLocaleString() || 0} gems
+              Баланс: {user?.gems?.toLocaleString() || 0} гемов
             </div>
 
             {/* Actions */}
             <div className="flex gap-3">
               <Button variant="secondary" onClick={onClose} className="flex-1">
-                Cancel
+                Отмена
               </Button>
               <Button
                 onClick={handleStart}
                 disabled={loading || bet <= 0 || bet > (user?.gems || 0)}
                 className="flex-1"
               >
-                {loading ? 'Starting...' : 'Start Game'}
+                {loading ? 'Запуск...' : 'Начать игру'}
               </Button>
             </div>
           </>
