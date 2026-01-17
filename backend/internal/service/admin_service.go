@@ -75,14 +75,14 @@ func (s *AdminService) GetStats(ctx context.Context) (*Stats, error) {
 	// Total coins in circulation
 	_ = s.db.QueryRow(ctx, `SELECT COALESCE(SUM(coins), 0) FROM users`).Scan(&stats.TotalCoins)
 
-	// Total wagered (all time)
+	// Total wagered (all time) - only coins bets
 	_ = s.db.QueryRow(ctx, `
-		SELECT COALESCE(SUM(bet_amount), 0) FROM game_history
+		SELECT COALESCE(SUM(bet_amount), 0) FROM game_history WHERE currency = 'coins'
 	`).Scan(&stats.TotalWagered)
 
-	// Wagered today
+	// Wagered today - only coins bets
 	_ = s.db.QueryRow(ctx, `
-		SELECT COALESCE(SUM(bet_amount), 0) FROM game_history WHERE created_at >= $1
+		SELECT COALESCE(SUM(bet_amount), 0) FROM game_history WHERE created_at >= $1 AND currency = 'coins'
 	`, today).Scan(&stats.WageredToday)
 
 	// Pending withdrawals

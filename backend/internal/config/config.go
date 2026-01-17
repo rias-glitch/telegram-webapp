@@ -16,17 +16,17 @@ type Config struct {
 	BotToken         string
 	BotUsername      string
 	JWTSecret        string
-	AdminTelegramIDs []int64 // Telegram user IDs for admin access
+	AdminTelegramIDs []int64 // добавить в env tg id админов бота
 	AdminBotEnabled  bool
 
 	// Game limits
-	MaxBet         int64 // Maximum bet amount for all games
-	MinBet         int64 // Minimum bet amount
-	GameRateLimit  int   // Max games per window
-	GameRateWindow int   // Window in seconds
+	MaxBet         int64
+	MinBet         int64
+	GameRateLimit  int
+	GameRateWindow int
 }
 
-// Load loads configuration from environment variables
+// Загрузка конфига из env
 func Load() *Config {
 	_ = godotenv.Load()
 
@@ -47,7 +47,7 @@ func Load() *Config {
 
 	botUsername := os.Getenv("BOT_USERNAME")
 	if botUsername == "" {
-		botUsername = "CryptoGamesBot" // Default fallback
+		botUsername = "HardMine BOT" // ! если не установлено в env !
 	}
 
 	port := os.Getenv("APP_PORT")
@@ -55,7 +55,7 @@ func Load() *Config {
 		port = "8080"
 	}
 
-	// Parse admin telegram IDs (comma-separated)
+	// Проверка тг id админов !! ЧЕРЕЗ ЗАПЯТУЮ В ENV !!
 	var adminIDs []int64
 	adminIDsStr := os.Getenv("ADMIN_TELEGRAM_IDS")
 	if adminIDsStr != "" {
@@ -69,29 +69,29 @@ func Load() *Config {
 
 	adminBotEnabled := os.Getenv("ADMIN_BOT_ENABLED") == "true"
 
-	// Game limits with defaults
-	maxBet := int64(100000) // Default 100k gems
+	// Game limits (по умолчанию)
+	maxBet := int64(100000) //максимум 100к
 	if v := os.Getenv("MAX_BET"); v != "" {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
 			maxBet = n
 		}
 	}
 
-	minBet := int64(10) // Default 10 gems
+	minBet := int64(10) //мин ставка 10
 	if v := os.Getenv("MIN_BET"); v != "" {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
 			minBet = n
 		}
 	}
 
-	gameRateLimit := 60 // Default 60 games per window
+	gameRateLimit := 60 // макс действий за ->
 	if v := os.Getenv("GAME_RATE_LIMIT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			gameRateLimit = n
 		}
 	}
 
-	gameRateWindow := 60 // Default 60 seconds
+	gameRateWindow := 60 // -> 60 секунд
 	if v := os.Getenv("GAME_RATE_WINDOW"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			gameRateWindow = n

@@ -42,7 +42,7 @@ func main() {
 
 	r := gin.Default()
 
-	// CORS for production (frontend on different domain)
+	// CORS для прода и связи фронта с бэкендом(разные домены)
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 		if origin != "" {
@@ -75,7 +75,7 @@ func main() {
 		}
 	}()
 
-	// Start admin bot if enabled
+	// Запуск админ бота
 	var adminBot *bot.AdminBot
 	if cfg.AdminBotEnabled && len(cfg.AdminTelegramIDs) > 0 {
 		adminService := service.NewAdminService(dbPool)
@@ -87,7 +87,7 @@ func main() {
 			go adminBot.Start()
 			log.Info("admin bot started", "admin_ids", cfg.AdminTelegramIDs)
 
-			// Set withdrawal notification callback
+			// Уведомление всем админам бота,если запрашивают вывод
 			httpServer.SetWithdrawalNotifyCallback(adminBot.NotifyAdminsNewWithdrawal)
 		}
 	}
@@ -98,7 +98,7 @@ func main() {
 
 	log.Info("shutting down server...")
 
-	// Graceful shutdown for bot
+	// Graceful shutdown для бота
 	if adminBot != nil {
 		adminBot.Stop()
 	}

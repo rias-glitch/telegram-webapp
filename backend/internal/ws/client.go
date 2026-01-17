@@ -21,9 +21,9 @@ type Client struct {
 	Conn     *websocket.Conn
 	Send     chan []byte
 
-	// Betting info
+	//Получить инфо
 	BetAmount int64
-	Currency  string // "gems" or "coins"
+	Currency  string // gems или coins
 
 	Hub        *Hub
 	Room       *Room

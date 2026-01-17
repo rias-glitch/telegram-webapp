@@ -2,7 +2,6 @@ package domain
 
 import "time"
 
-// QuestType - тип квеста
 type QuestType string
 
 const (
@@ -11,7 +10,7 @@ const (
 	QuestTypeOneTime QuestType = "one_time"
 )
 
-// ActionType - тип действия для квеста
+//Тип действия для квеста
 type ActionType string
 
 const (
@@ -22,7 +21,7 @@ const (
 	ActionTypeEarnGems  ActionType = "earn_gems"
 )
 
-// Quest - шаблон задания
+//Шаблон задания
 type Quest struct {
 	ID          int64      `db:"id" json:"id"`
 	QuestType   QuestType  `db:"quest_type" json:"quest_type"`
@@ -38,7 +37,7 @@ type Quest struct {
 	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
 }
 
-// UserQuest - прогресс пользователя по заданию
+//Прогресс пользователя по заданию
 type UserQuest struct {
 	ID              int64      `db:"id" json:"id"`
 	UserID          int64      `db:"user_id" json:"user_id"`
@@ -52,37 +51,34 @@ type UserQuest struct {
 	PeriodStart     time.Time  `db:"period_start" json:"period_start"`
 }
 
-// UserQuestWithDetails - прогресс с деталями квеста (для API ответов)
+//Прогресс с деталями квеста для api ответов
 type UserQuestWithDetails struct {
 	UserQuest
 	Quest Quest `json:"quest"`
 }
 
-// IsExpired проверяет, истёк ли период квеста
+//Проверка истечения срока квеста(у ежедневных сброс в полночь)
 func (uq *UserQuest) IsExpired(quest *Quest) bool {
 	now := time.Now()
 	switch quest.QuestType {
 	case QuestTypeDaily:
-		// Daily квесты сбрасываются в полночь
 		return uq.PeriodStart.Day() != now.Day() ||
 			uq.PeriodStart.Month() != now.Month() ||
 			uq.PeriodStart.Year() != now.Year()
 	case QuestTypeWeekly:
-		// Weekly квесты сбрасываются через 7 дней
 		return now.Sub(uq.PeriodStart) >= 7*24*time.Hour
 	case QuestTypeOneTime:
-		// One-time квесты никогда не истекают
 		return false
 	}
 	return false
 }
 
-// CanClaim проверяет, можно ли забрать награду
+//Проверка можно ли забрать награду
 func (uq *UserQuest) CanClaim() bool {
 	return uq.Completed && !uq.RewardClaimed
 }
 
-// Progress возвращает прогресс в процентах (0-100)
+//Возвращает прогресс в процентах от 0 до 100
 func (uq *UserQuest) Progress(targetCount int) int {
 	if targetCount <= 0 {
 		return 100

@@ -25,7 +25,7 @@ const (
 
 // Exchange rates
 const (
-	CoinsPerTON       = 10    // 10 coins = 1 TON
+	CoinsPerTON       = 10    //
 	WithdrawalFeePct  = 5     // 5% fee on withdrawals
 	MinWithdrawCoins  = 10    // Minimum 10 coins (1 TON) to withdraw
 )

@@ -1,6 +1,6 @@
 package ws
 
-// decide определяет результат player1 vs player2
+//Определяет результат player1 vs player2
 func decide(moveA, moveB string) string {
 	if moveA == moveB {
 		return "draw"

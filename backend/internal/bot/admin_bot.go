@@ -193,7 +193,7 @@ func (b *AdminBot) handleCommand(msg *tgbotapi.Message) {
 		response = b.handleReferralStats(ctx, msg.CommandArguments())
 
 	default:
-		response = "❌ Неизвестная команда. Используйте /help для списка команд."
+		response = "Неизвестная команда. Используйте /help для списка команд."
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, response)
@@ -206,9 +206,9 @@ func (b *AdminBot) handleCommand(msg *tgbotapi.Message) {
 }
 
 func (b *AdminBot) helpMessage() string {
-	return `<b>🤖 Команды администратора</b>
+	return `<b>Команды администратора</b>
 
-<b>📊 Статистика:</b>
+<b>Статистика:</b>
 /stats - Статистика платформы
 /top [лимит] - Топ пользователей по гемам
 /games - Последние игры
@@ -216,7 +216,7 @@ func (b *AdminBot) helpMessage() string {
 /topusergames [лимит] - Топ по победам в играх
 /referrals [лимит] - Топ по рефералам
 
-<b>👤 Управление пользователями:</b>
+<b>Управление пользователями:</b>
 /user &lt;@username|tg_id&gt; - Информация о пользователе
 /users [страница] - Все пользователи
 /addgems &lt;@username|tg_id&gt; &lt;сумма&gt; - Добавить гемы
@@ -225,51 +225,51 @@ func (b *AdminBot) helpMessage() string {
 /ban &lt;@username|tg_id&gt; - Заблокировать
 /unban &lt;@username|tg_id&gt; - Разблокировать
 
-<b>🔐 Управление админами:</b>
+<b>Управление админами:</b>
 /addadmin &lt;tg_id&gt; - Добавить админа
 
-<b>💸 Выводы:</b>
+<b>Выводы:</b>
 /withdrawals - Ожидающие выводы
 /approve &lt;id&gt; [tx_hash] - Одобрить вывод
 /reject &lt;id&gt; &lt;причина&gt; - Отклонить вывод
 
-<b>📢 Рассылка:</b>
+<b>Рассылка:</b>
 /broadcast - Отправить сообщение всем (фото, кнопки)`
 }
 
 func (b *AdminBot) handleStats(ctx context.Context) string {
 	stats, err := b.adminService.GetStats(ctx)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
-	return fmt.Sprintf(`<b>📊 Статистика платформы</b>
+	return fmt.Sprintf(`<b>Статистика платформы</b>
 
-<b>👥 Пользователи:</b>
-• Всего: %d
-• Активных сегодня: %d
-• Активных за неделю: %d
+<b>Пользователи:</b>
+- Всего: %d
+- Активных сегодня: %d
+- Активных за неделю: %d
 
-<b>🎮 Игры:</b>
-• Всего сыграно: %d
-• Сегодня: %d
+<b>Игры:</b>
+- Всего сыграно: %d
+- Сегодня: %d
 
-<b>💰 Экономика:</b>
-• Всего гемов: %d
-• Всего коинов: %d
-• Всего поставлено: %d
-• Поставлено сегодня: %d
+<b>Экономика:</b>
+- Всего гемов: %d
+- Всего коинов: %d
+- Всего поставлено (coins): %d
+- Поставлено сегодня (coins): %d
 
-<b>🪙 Куплено коинов:</b>
-• Сегодня: %d
-• За неделю: %d
-• За месяц: %d
-• Всего: %d
+<b>Куплено коинов:</b>
+- Сегодня: %d
+- За неделю: %d
+- За месяц: %d
+- Всего: %d
 
-<b>💳 Платежи:</b>
-• Всего депозитов: %d
-• Всего выведено: %d
-• Ожидает вывода: %d`,
+<b>Платежи:</b>
+- Всего депозитов: %d
+- Всего выведено: %d
+- Ожидает вывода: %d`,
 		stats.TotalUsers,
 		stats.ActiveUsersToday,
 		stats.ActiveUsersWeek,
@@ -291,26 +291,26 @@ func (b *AdminBot) handleStats(ctx context.Context) string {
 
 func (b *AdminBot) handleUser(ctx context.Context, args string) string {
 	if args == "" {
-		return "❌ Использование: /user <@username|tg_id>"
+		return "Использование: /user <@username|tg_id>"
 	}
 
 	user, err := b.adminService.GetUser(ctx, args)
 	if err != nil {
-		return fmt.Sprintf("❌ Пользователь не найден: %v", err)
+		return fmt.Sprintf("Пользователь не найден: %v", err)
 	}
 
-	return fmt.Sprintf(`<b>👤 Информация о пользователе</b>
+	return fmt.Sprintf(`<b>Информация о пользователе</b>
 
-• ID: %d
-• Telegram ID: %d
-• Username: @%s
-• Имя: %s
-• 💎 Гемы: %d
-• 🪙 Коины: %d
-• 🎮 Игр сыграно: %d
-• ✅ Выиграно: %d
-• ❌ Проиграно: %d
-• 📅 Регистрация: %s`,
+- ID: %d
+- Telegram ID: %d
+- Username: @%s
+- Имя: %s
+- Гемы: %d
+- Коины: %d
+- Игр сыграно: %d
+- Выиграно: %d
+- Проиграно: %d
+- Регистрация: %s`,
 		user.ID,
 		user.TgID,
 		user.Username,
@@ -327,82 +327,82 @@ func (b *AdminBot) handleUser(ctx context.Context, args string) string {
 func (b *AdminBot) handleAddGems(ctx context.Context, args string) string {
 	parts := strings.Fields(args)
 	if len(parts) != 2 {
-		return "❌ Использование: /addgems <@username|tg_id> <сумма>"
+		return "Использование: /addgems <@username|tg_id> <сумма>"
 	}
 
 	userID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return "❌ Неверный ID пользователя"
+		return "Неверный ID пользователя"
 	}
 
 	amount, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return "❌ Неверная сумма"
+		return "Неверная сумма"
 	}
 
 	newBalance, err := b.adminService.AddUserGems(ctx, userID, amount)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
-	return fmt.Sprintf("✅ Добавлено %d гемов пользователю %d. Новый баланс: %d 💎", amount, userID, newBalance)
+	return fmt.Sprintf("Добавлено %d гемов пользователю %d. Новый баланс: %d", amount, userID, newBalance)
 }
 
 func (b *AdminBot) handleSetGems(ctx context.Context, args string) string {
 	parts := strings.Fields(args)
 	if len(parts) != 2 {
-		return "❌ Использование: /setgems <@username|tg_id> <сумма>"
+		return "Использование: /setgems <@username|tg_id> <сумма>"
 	}
 
 	userID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return "❌ Неверный ID пользователя"
+		return "Неверный ID пользователя"
 	}
 
 	amount, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return "❌ Неверная сумма"
+		return "Неверная сумма"
 	}
 
 	if err := b.adminService.SetUserGems(ctx, userID, amount); err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
-	return fmt.Sprintf("✅ Установлено %d 💎 гемов пользователю %d", amount, userID)
+	return fmt.Sprintf("Установлено %d гемов пользователю %d", amount, userID)
 }
 
 func (b *AdminBot) handleBan(ctx context.Context, args string) string {
 	if args == "" {
-		return "❌ Использование: /ban <@username|tg_id>"
+		return "Использование: /ban <@username|tg_id>"
 	}
 
 	userID, err := strconv.ParseInt(args, 10, 64)
 	if err != nil {
-		return "❌ Неверный ID пользователя"
+		return "Неверный ID пользователя"
 	}
 
 	if err := b.adminService.BanUser(ctx, userID); err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
-	return fmt.Sprintf("🚫 Пользователь %d заблокирован", userID)
+	return fmt.Sprintf("Пользователь %d заблокирован", userID)
 }
 
 func (b *AdminBot) handleUnban(ctx context.Context, args string) string {
 	if args == "" {
-		return "❌ Использование: /unban <@username|tg_id>"
+		return "Использование: /unban <@username|tg_id>"
 	}
 
 	userID, err := strconv.ParseInt(args, 10, 64)
 	if err != nil {
-		return "❌ Неверный ID пользователя"
+		return "Неверный ID пользователя"
 	}
 
 	if err := b.adminService.UnbanUser(ctx, userID); err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
-	return fmt.Sprintf("✅ Пользователь %d разблокирован", userID)
+	return fmt.Sprintf("Пользователь %d разблокирован", userID)
 }
 
 func (b *AdminBot) handleTop(ctx context.Context, args string) string {
@@ -415,22 +415,22 @@ func (b *AdminBot) handleTop(ctx context.Context, args string) string {
 
 	users, err := b.adminService.GetTopUsers(ctx, limit)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
 	if len(users) == 0 {
-		return "❌ Пользователи не найдены"
+		return "Пользователи не найдены"
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>🏆 Топ %d по гемам</b>\n\n", limit))
+	sb.WriteString(fmt.Sprintf("<b>Топ %d по гемам</b>\n\n", limit))
 
 	for i, u := range users {
 		username := u.Username
 		if username == "" {
 			username = u.FirstName
 		}
-		sb.WriteString(fmt.Sprintf("%d. @%s — %d 💎\n", i+1, username, u.Gems))
+		sb.WriteString(fmt.Sprintf("%d. @%s — %d gems\n", i+1, username, u.Gems))
 	}
 
 	return sb.String()
@@ -439,27 +439,27 @@ func (b *AdminBot) handleTop(ctx context.Context, args string) string {
 func (b *AdminBot) handleRecentGames(ctx context.Context) string {
 	games, err := b.adminService.GetRecentGames(ctx, 10)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
 	if len(games) == 0 {
-		return "❌ Нет недавних игр"
+		return "Нет недавних игр"
 	}
 
 	var sb strings.Builder
-	sb.WriteString("<b>🎮 Последние игры</b>\n\n")
+	sb.WriteString("<b>Последние игры</b>\n\n")
 
 	for _, g := range games {
 		result := g["result"].(string)
-		emoji := "🎮"
+		status := "[GAME]"
 		if result == "win" {
-			emoji = "✅"
+			status = "[WIN]"
 		} else if result == "lose" {
-			emoji = "❌"
+			status = "[LOSE]"
 		}
 
 		sb.WriteString(fmt.Sprintf("%s @%s | %s | ставка: %d | %+d\n",
-			emoji,
+			status,
 			g["username"],
 			g["game_type"],
 			g["bet_amount"],
@@ -473,21 +473,21 @@ func (b *AdminBot) handleRecentGames(ctx context.Context) string {
 func (b *AdminBot) handleWithdrawals(ctx context.Context) string {
 	withdrawals, err := b.adminService.GetPendingWithdrawals(ctx)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
 	if len(withdrawals) == 0 {
-		return "✅ Нет ожидающих выводов"
+		return "Нет ожидающих выводов"
 	}
 
 	var sb strings.Builder
-	sb.WriteString("<b>💸 Ожидающие выводы</b>\n\n")
+	sb.WriteString("<b>Ожидающие выводы</b>\n\n")
 
 	for _, w := range withdrawals {
-		sb.WriteString(fmt.Sprintf("🆔 #%d | @%s\n", w.ID, w.Username))
-		sb.WriteString(fmt.Sprintf("💰 Сумма: %d coins (%s)\n", w.GemsAmount, w.TonAmount))
-		sb.WriteString(fmt.Sprintf("💳 Кошелёк: <code>%s</code>\n", w.WalletAddress))
-		sb.WriteString(fmt.Sprintf("📅 %s\n\n", w.CreatedAt.Format("02.01.2006 15:04")))
+		sb.WriteString(fmt.Sprintf("#%d | @%s\n", w.ID, w.Username))
+		sb.WriteString(fmt.Sprintf("Сумма: %d coins (%s)\n", w.GemsAmount, w.TonAmount))
+		sb.WriteString(fmt.Sprintf("Кошелёк: <code>%s</code>\n", w.WalletAddress))
+		sb.WriteString(fmt.Sprintf("%s\n\n", w.CreatedAt.Format("02.01.2006 15:04")))
 	}
 
 	sb.WriteString("\n/approve <id> — одобрить\n/reject <id> <причина> — отклонить")
@@ -498,12 +498,12 @@ func (b *AdminBot) handleWithdrawals(ctx context.Context) string {
 func (b *AdminBot) handleApproveWithdrawal(ctx context.Context, args string) string {
 	parts := strings.Fields(args)
 	if len(parts) < 1 {
-		return "❌ Использование: /approve <id> [tx_hash]"
+		return "Использование: /approve <id> [tx_hash]"
 	}
 
 	id, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return "❌ Неверный ID вывода"
+		return "Неверный ID вывода"
 	}
 
 	txHash := ""
@@ -514,46 +514,46 @@ func (b *AdminBot) handleApproveWithdrawal(ctx context.Context, args string) str
 	}
 
 	if err := b.adminService.ApproveWithdrawal(ctx, id, txHash); err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
 	if len(parts) >= 2 {
-		return fmt.Sprintf("✅ Вывод #%d одобрен\nТранзакция: %s", id, txHash)
+		return fmt.Sprintf("Вывод #%d одобрен\nТранзакция: %s", id, txHash)
 	}
-	return fmt.Sprintf("✅ Вывод #%d одобрен (ручное подтверждение)", id)
+	return fmt.Sprintf("Вывод #%d одобрен (ручное подтверждение)", id)
 }
 
 func (b *AdminBot) handleRejectWithdrawal(ctx context.Context, args string) string {
 	parts := strings.SplitN(args, " ", 2)
 	if len(parts) < 2 {
-		return "❌ Использование: /reject <id> <причина>"
+		return "Использование: /reject <id> <причина>"
 	}
 
 	id, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return "❌ Неверный ID вывода"
+		return "Неверный ID вывода"
 	}
 
 	reason := parts[1]
 
 	if err := b.adminService.RejectWithdrawal(ctx, id, reason); err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
-	return fmt.Sprintf("❌ Вывод #%d отклонён. Средства возвращены.", id)
+	return fmt.Sprintf("Вывод #%d отклонён. Средства возвращены.", id)
 }
 
 func (b *AdminBot) handleBroadcastStart(chatID int64, adminID int64) string {
 	b.broadcastPending[adminID] = true
 
-	return `📢 <b>Broadcast Mode</b>
+	return `<b>Broadcast Mode</b>
 
 Введите сообщение для рассылки ниже.
 
 <b>Поддерживается:</b>
-• Текст с HTML разметкой
-• Фото с подписью
-• Кнопки (формат: [текст](url))
+- Текст с HTML разметкой
+- Фото с подписью
+- Кнопки (формат: [текст](url))
 
 Отправьте /cancel для отмены.`
 }
@@ -565,7 +565,7 @@ func (b *AdminBot) executeBroadcast(msg *tgbotapi.Message) {
 	// Cancel if user sends /cancel
 	if msg.Text == "/cancel" {
 		delete(b.broadcastPending, adminID)
-		reply := tgbotapi.NewMessage(chatID, "❌ Рассылка отменена")
+		reply := tgbotapi.NewMessage(chatID, "Рассылка отменена")
 		b.bot.Send(reply)
 		return
 	}
@@ -580,19 +580,19 @@ func (b *AdminBot) executeBroadcast(msg *tgbotapi.Message) {
 	userIDs, err := b.adminService.GetAllUserTgIDs(ctx)
 	if err != nil {
 		b.log.Error("failed to get user IDs", "error", err)
-		reply := tgbotapi.NewMessage(chatID, fmt.Sprintf("❌ Ошибка: %v", err))
+		reply := tgbotapi.NewMessage(chatID, fmt.Sprintf("Ошибка: %v", err))
 		b.bot.Send(reply)
 		return
 	}
 
 	if len(userIDs) == 0 {
-		reply := tgbotapi.NewMessage(chatID, "❌ Нет пользователей для рассылки")
+		reply := tgbotapi.NewMessage(chatID, "Нет пользователей для рассылки")
 		b.bot.Send(reply)
 		return
 	}
 
 	// Send progress message
-	progressMsg := tgbotapi.NewMessage(chatID, fmt.Sprintf("📤 Начинаю рассылку %d пользователям...", len(userIDs)))
+	progressMsg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Начинаю рассылку %d пользователям...", len(userIDs)))
 	b.bot.Send(progressMsg)
 
 	sent := 0
@@ -635,11 +635,11 @@ func (b *AdminBot) executeBroadcast(msg *tgbotapi.Message) {
 
 	b.log.Info("broadcast complete", "sent", sent, "failed", failed, "blocked", blocked)
 
-	result := fmt.Sprintf(`✅ <b>Рассылка завершена</b>
+	result := fmt.Sprintf(`<b>Рассылка завершена</b>
 
-📨 Отправлено: %d
-❌ Не доставлено: %d
-🚫 Заблокировали бота: %d`, sent, failed-blocked, blocked)
+Отправлено: %d
+Не доставлено: %d
+Заблокировали бота: %d`, sent, failed-blocked, blocked)
 
 	reply := tgbotapi.NewMessage(chatID, result)
 	reply.ParseMode = "HTML"
@@ -660,15 +660,15 @@ func (b *AdminBot) handleUsers(ctx context.Context, args string) string {
 
 	users, total, err := b.adminService.GetAllUsers(ctx, limit, offset)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
 	if len(users) == 0 {
-		return "❌ Пользователи не найдены"
+		return "Пользователи не найдены"
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>👥 Пользователи (стр. %d, всего: %d)</b>\n\n", page, total))
+	sb.WriteString(fmt.Sprintf("<b>Пользователи (стр. %d, всего: %d)</b>\n\n", page, total))
 
 	for i, u := range users {
 		username := u.Username
@@ -680,7 +680,7 @@ func (b *AdminBot) handleUsers(ctx context.Context, args string) string {
 		}
 
 		num := offset + i + 1
-		sb.WriteString(fmt.Sprintf("%d. @%s | 💎%d | 🪙%d\n", num, username, u.Gems, u.Coins))
+		sb.WriteString(fmt.Sprintf("%d. @%s | gems:%d | coins:%d\n", num, username, u.Gems, u.Coins))
 	}
 
 	totalPages := (total + limit - 1) / limit
@@ -693,39 +693,39 @@ func (b *AdminBot) handleUsers(ctx context.Context, args string) string {
 
 func (b *AdminBot) handleUserGames(ctx context.Context, args string) string {
 	if args == "" {
-		return "❌ Использование: /usergames <@username|tg_id>"
+		return "Использование: /usergames <@username|tg_id>"
 	}
 
 	tgID, err := strconv.ParseInt(args, 10, 64)
 	if err != nil {
-		return "❌ Неверный Telegram ID"
+		return "Неверный Telegram ID"
 	}
 
 	user, err := b.adminService.GetUserByTgID(ctx, tgID)
 	if err != nil {
-		return fmt.Sprintf("❌ Пользователь не найден: %v", err)
+		return fmt.Sprintf("Пользователь не найден: %v", err)
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>🎮 Игры @%s</b>\n\n", user.Username))
+	sb.WriteString(fmt.Sprintf("<b>Игры @%s</b>\n\n", user.Username))
 
 	// Get gems games
 	gemsGames, err := b.adminService.GetUserGamesByTgID(ctx, tgID, "gems", 10)
 	if err != nil {
-		sb.WriteString(fmt.Sprintf("❌ Ошибка: %v\n", err))
+		sb.WriteString(fmt.Sprintf("Ошибка: %v\n", err))
 	} else {
-		sb.WriteString("<b>💎 Последние 10 игр на гемы:</b>\n")
+		sb.WriteString("<b>Последние 10 игр на гемы:</b>\n")
 		if len(gemsGames) == 0 {
 			sb.WriteString("Нет игр\n")
 		} else {
 			for _, g := range gemsGames {
-				emoji := "🎮"
+				status := "[GAME]"
 				if g.Result == "win" {
-					emoji = "✅"
+					status = "[WIN]"
 				} else if g.Result == "lose" {
-					emoji = "❌"
+					status = "[LOSE]"
 				}
-				sb.WriteString(fmt.Sprintf("%s %s | ставка: %d | %+d\n", emoji, g.GameType, g.BetAmount, g.WinAmount))
+				sb.WriteString(fmt.Sprintf("%s %s | ставка: %d | %+d\n", status, g.GameType, g.BetAmount, g.WinAmount))
 			}
 		}
 	}
@@ -735,20 +735,20 @@ func (b *AdminBot) handleUserGames(ctx context.Context, args string) string {
 	// Get coins games
 	coinsGames, err := b.adminService.GetUserGamesByTgID(ctx, tgID, "coins", 10)
 	if err != nil {
-		sb.WriteString(fmt.Sprintf("❌ Ошибка: %v\n", err))
+		sb.WriteString(fmt.Sprintf("Ошибка: %v\n", err))
 	} else {
-		sb.WriteString("<b>🪙 Последние 10 игр на коины:</b>\n")
+		sb.WriteString("<b>Последние 10 игр на коины:</b>\n")
 		if len(coinsGames) == 0 {
 			sb.WriteString("Нет игр\n")
 		} else {
 			for _, g := range coinsGames {
-				emoji := "🎮"
+				status := "[GAME]"
 				if g.Result == "win" {
-					emoji = "✅"
+					status = "[WIN]"
 				} else if g.Result == "lose" {
-					emoji = "❌"
+					status = "[LOSE]"
 				}
-				sb.WriteString(fmt.Sprintf("%s %s | ставка: %d | %+d\n", emoji, g.GameType, g.BetAmount, g.WinAmount))
+				sb.WriteString(fmt.Sprintf("%s %s | ставка: %d | %+d\n", status, g.GameType, g.BetAmount, g.WinAmount))
 			}
 		}
 	}
@@ -766,16 +766,16 @@ func (b *AdminBot) handleTopUserGames(ctx context.Context, args string) string {
 
 	stats, err := b.adminService.GetTopUsersByWins(ctx, limit)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
 	if len(stats) == 0 {
-		return "❌ Нет пользователей с победами"
+		return "Нет пользователей с победами"
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>🏆 Топ %d по победам</b>\n\n", limit))
-	sb.WriteString("Игрок | 💎 Гемы | 🪙 Коины\n")
+	sb.WriteString(fmt.Sprintf("<b>Топ %d по победам</b>\n\n", limit))
+	sb.WriteString("Игрок | Gems | Coins\n")
 	sb.WriteString("─────────────────────────\n")
 
 	for i, s := range stats {
@@ -792,45 +792,45 @@ func (b *AdminBot) handleTopUserGames(ctx context.Context, args string) string {
 func (b *AdminBot) handleAddCoins(ctx context.Context, args string) string {
 	parts := strings.Fields(args)
 	if len(parts) != 2 {
-		return "❌ Использование: /addcoins <@username|tg_id> <сумма>"
+		return "Использование: /addcoins <@username|tg_id> <сумма>"
 	}
 
 	tgID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return "❌ Неверный Telegram ID"
+		return "Неверный Telegram ID"
 	}
 
 	amount, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return "❌ Неверная сумма"
+		return "Неверная сумма"
 	}
 
 	newBalance, err := b.adminService.AddUserCoins(ctx, tgID, amount)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
-	return fmt.Sprintf("✅ Добавлено %d 🪙 коинов пользователю (TG: %d). Новый баланс: %d", amount, tgID, newBalance)
+	return fmt.Sprintf("Добавлено %d коинов пользователю (TG: %d). Новый баланс: %d", amount, tgID, newBalance)
 }
 
 func (b *AdminBot) handleAddAdmin(args string) string {
 	if args == "" {
-		return "❌ Использование: /addadmin <tg_id>"
+		return "Использование: /addadmin <tg_id>"
 	}
 
 	tgID, err := strconv.ParseInt(args, 10, 64)
 	if err != nil {
-		return "❌ Неверный Telegram ID"
+		return "Неверный Telegram ID"
 	}
 
 	if b.isAdmin(tgID) {
-		return fmt.Sprintf("⚠️ Пользователь %d уже админ", tgID)
+		return fmt.Sprintf("Пользователь %d уже админ", tgID)
 	}
 
 	b.adminIDs = append(b.adminIDs, tgID)
 	b.log.Info("added new admin", "tg_id", tgID)
 
-	return fmt.Sprintf("✅ Добавлен админ %d\n\n⚠️ Это временно до перезапуска. Добавьте в ADMIN_TELEGRAM_IDS для постоянного доступа.", tgID)
+	return fmt.Sprintf("Добавлен админ %d\n\nЭто временно до перезапуска. Добавьте в ADMIN_TELEGRAM_IDS для постоянного доступа.", tgID)
 }
 
 // SendNotification sends a notification to a specific user
@@ -849,11 +849,11 @@ func (b *AdminBot) NotifyAdminsNewWithdrawal(ctx context.Context, withdrawalID i
 		return
 	}
 
-	message := fmt.Sprintf(`🔔 <b>Новый запрос на вывод!</b>
+	message := fmt.Sprintf(`<b>Новый запрос на вывод!</b>
 
-👤 Пользователь: @%s (TG: %d)
-💰 Сумма: %d coins (%.4f TON)
-💳 Кошелек: <code>%s</code>
+Пользователь: @%s (TG: %d)
+Сумма: %d coins (%.4f TON)
+Кошелек: <code>%s</code>
 
 ID: #%d
 
@@ -880,15 +880,15 @@ func (b *AdminBot) handleReferralStats(ctx context.Context, args string) string 
 
 	stats, err := b.adminService.GetReferralStats(ctx, limit)
 	if err != nil {
-		return fmt.Sprintf("❌ Ошибка: %v", err)
+		return fmt.Sprintf("Ошибка: %v", err)
 	}
 
 	if len(stats) == 0 {
-		return "❌ Нет пользователей с рефералами"
+		return "Нет пользователей с рефералами"
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>👥 Топ %d по рефералам</b>\n\n", limit))
+	sb.WriteString(fmt.Sprintf("<b>Топ %d по рефералам</b>\n\n", limit))
 
 	for i, s := range stats {
 		username := s.Username
