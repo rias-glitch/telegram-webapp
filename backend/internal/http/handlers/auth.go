@@ -116,8 +116,10 @@ func (h *Handler) Auth(c *gin.Context) {
 	repo := repository.NewUserRepository(h.DB)
 	ctx := c.Request.Context()
 
+	isNewUser := false
 	user, err := repo.GetByTgID(ctx, tgUser.ID)
 	if err != nil {
+		isNewUser = true
 		user = &domain.User{
 			TgID:      tgUser.ID,
 			Username:  tgUser.Username,
@@ -127,6 +129,21 @@ func (h *Handler) Auth(c *gin.Context) {
 		if err := repo.Create(ctx, user); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 			return
+		}
+	}
+
+	// Handle referral from startapp parameter (format: ref_CODE)
+	startParam := values.Get("start_param")
+	if startParam != "" && strings.HasPrefix(startParam, "ref_") && isNewUser {
+		refCode := strings.TrimPrefix(startParam, "ref_")
+		if refCode != "" {
+			// Apply referral code for new user
+			referralRepo := repository.NewReferralRepository(h.DB)
+			referrerID, err := referralRepo.GetUserByReferralCode(ctx, refCode)
+			if err == nil && referrerID != user.ID {
+				// Create referral relationship
+				_ = referralRepo.CreateReferral(ctx, referrerID, user.ID)
+			}
 		}
 	}
 

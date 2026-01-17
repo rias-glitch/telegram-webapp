@@ -15,6 +15,15 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+// QuestCreationState tracks the state of quest creation wizard
+type QuestCreationState struct {
+	Step        int    // 1=title, 2=type, 3=action, 4=target, 5=reward
+	Title       string
+	QuestType   string
+	ActionType  string
+	TargetCount int
+}
+
 // AdminBot handles admin commands via Telegram
 type AdminBot struct {
 	bot              *tgbotapi.BotAPI
@@ -23,7 +32,8 @@ type AdminBot struct {
 	stopCh           chan struct{}
 	wg               sync.WaitGroup
 	log              *slog.Logger
-	broadcastPending map[int64]bool // Track admins waiting to enter broadcast message
+	broadcastPending map[int64]bool                  // Track admins waiting to enter broadcast message
+	questCreation    map[int64]*QuestCreationState   // Track quest creation state per admin
 }
 
 // NewAdminBot creates a new admin bot
@@ -43,6 +53,7 @@ func NewAdminBot(token string, adminService *service.AdminService, adminIDs []in
 		stopCh:           make(chan struct{}),
 		log:              log,
 		broadcastPending: make(map[int64]bool),
+		questCreation:    make(map[int64]*QuestCreationState),
 	}, nil
 }
 
@@ -79,6 +90,16 @@ func (b *AdminBot) Start() {
 				go func(msg *tgbotapi.Message) {
 					defer b.wg.Done()
 					b.executeBroadcast(msg)
+				}(update.Message)
+				continue
+			}
+
+			// Check if admin is creating a quest
+			if b.questCreation[update.Message.From.ID] != nil && !update.Message.IsCommand() {
+				b.wg.Add(1)
+				go func(msg *tgbotapi.Message) {
+					defer b.wg.Done()
+					b.handleQuestCreationStep(msg)
 				}(update.Message)
 				continue
 			}
@@ -192,8 +213,20 @@ func (b *AdminBot) handleCommand(msg *tgbotapi.Message) {
 	case "referrals":
 		response = b.handleReferralStats(ctx, msg.CommandArguments())
 
+	case "checkquests":
+		response = b.handleCheckQuests(ctx)
+
+	case "newquest":
+		response = b.handleNewQuest(msg.From.ID)
+
+	case "deletequest":
+		response = b.handleDeleteQuest(ctx, msg.CommandArguments())
+
+	case "togglequest":
+		response = b.handleToggleQuest(ctx, msg.CommandArguments())
+
 	default:
-		response = "Неизвестная команда. Используйте /help для списка команд."
+		response = "❌ Неизвестная команда. Используйте /help для списка команд."
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, response)
@@ -206,9 +239,9 @@ func (b *AdminBot) handleCommand(msg *tgbotapi.Message) {
 }
 
 func (b *AdminBot) helpMessage() string {
-	return `<b>Команды администратора</b>
+	return `<b>🤖 Команды администратора</b>
 
-<b>Статистика:</b>
+<b>📊 Статистика:</b>
 /stats - Статистика платформы
 /top [лимит] - Топ пользователей по гемам
 /games - Последние игры
@@ -216,7 +249,7 @@ func (b *AdminBot) helpMessage() string {
 /topusergames [лимит] - Топ по победам в играх
 /referrals [лимит] - Топ по рефералам
 
-<b>Управление пользователями:</b>
+<b>👤 Управление пользователями:</b>
 /user &lt;@username|tg_id&gt; - Информация о пользователе
 /users [страница] - Все пользователи
 /addgems &lt;@username|tg_id&gt; &lt;сумма&gt; - Добавить гемы
@@ -225,15 +258,21 @@ func (b *AdminBot) helpMessage() string {
 /ban &lt;@username|tg_id&gt; - Заблокировать
 /unban &lt;@username|tg_id&gt; - Разблокировать
 
-<b>Управление админами:</b>
+<b>📋 Управление квестами:</b>
+/checkquests - Список всех квестов
+/newquest - Создать новый квест
+/deletequest &lt;id&gt; - Удалить квест
+/togglequest &lt;id&gt; - Вкл/выкл квест
+
+<b>🔐 Управление админами:</b>
 /addadmin &lt;tg_id&gt; - Добавить админа
 
-<b>Выводы:</b>
+<b>💸 Выводы:</b>
 /withdrawals - Ожидающие выводы
 /approve &lt;id&gt; [tx_hash] - Одобрить вывод
 /reject &lt;id&gt; &lt;причина&gt; - Отклонить вывод
 
-<b>Рассылка:</b>
+<b>📢 Рассылка:</b>
 /broadcast - Отправить сообщение всем (фото, кнопки)`
 }
 
@@ -880,15 +919,15 @@ func (b *AdminBot) handleReferralStats(ctx context.Context, args string) string 
 
 	stats, err := b.adminService.GetReferralStats(ctx, limit)
 	if err != nil {
-		return fmt.Sprintf("Ошибка: %v", err)
+		return fmt.Sprintf("❌ Ошибка: %v", err)
 	}
 
 	if len(stats) == 0 {
-		return "Нет пользователей с рефералами"
+		return "❌ Нет пользователей с рефералами"
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>Топ %d по рефералам</b>\n\n", limit))
+	sb.WriteString(fmt.Sprintf("<b>👥 Топ %d по рефералам</b>\n\n", limit))
 
 	for i, s := range stats {
 		username := s.Username
@@ -902,4 +941,249 @@ func (b *AdminBot) handleReferralStats(ctx context.Context, args string) string 
 	}
 
 	return sb.String()
+}
+
+// Quest management handlers
+
+func (b *AdminBot) handleCheckQuests(ctx context.Context) string {
+	quests, err := b.adminService.GetAllQuests(ctx)
+	if err != nil {
+		return fmt.Sprintf("❌ Ошибка: %v", err)
+	}
+
+	if len(quests) == 0 {
+		return "📋 Нет квестов в системе"
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>📋 Все квесты (%d шт.)</b>\n\n", len(quests)))
+
+	typeNames := map[string]string{
+		"daily":    "Ежедневный",
+		"weekly":   "Еженедельный",
+		"one_time": "Разовый",
+	}
+
+	for _, q := range quests {
+		status := "✅"
+		if !q.IsActive {
+			status = "❌"
+		}
+		typeName := typeNames[q.QuestType]
+		if typeName == "" {
+			typeName = q.QuestType
+		}
+
+		reward := ""
+		if q.RewardGems > 0 {
+			reward += fmt.Sprintf("%d💎 ", q.RewardGems)
+		}
+		if q.RewardCoins > 0 {
+			reward += fmt.Sprintf("%d🪙 ", q.RewardCoins)
+		}
+		if q.RewardGK > 0 {
+			reward += fmt.Sprintf("%dGK ", q.RewardGK)
+		}
+		if reward == "" {
+			reward = "0"
+		}
+
+		sb.WriteString(fmt.Sprintf("%s <b>#%d</b> %s\n", status, q.ID, q.Title))
+		sb.WriteString(fmt.Sprintf("   Тип: %s | %s x%d | Награда: %s\n\n", typeName, q.ActionType, q.TargetCount, reward))
+	}
+
+	sb.WriteString("\n/deletequest &lt;id&gt; - удалить\n/togglequest &lt;id&gt; - вкл/выкл")
+
+	return sb.String()
+}
+
+func (b *AdminBot) handleNewQuest(adminID int64) string {
+	b.questCreation[adminID] = &QuestCreationState{Step: 1}
+
+	return `📋 <b>Создание нового квеста</b>
+
+<b>Шаг 1/5:</b> Введите название квеста
+
+Например: "Сыграй 10 игр" или "Выиграй 5 раз"
+
+Отправьте /cancel для отмены.`
+}
+
+func (b *AdminBot) handleQuestCreationStep(msg *tgbotapi.Message) {
+	adminID := msg.From.ID
+	chatID := msg.Chat.ID
+	state := b.questCreation[adminID]
+
+	if state == nil {
+		return
+	}
+
+	if msg.Text == "/cancel" {
+		delete(b.questCreation, adminID)
+		reply := tgbotapi.NewMessage(chatID, "❌ Создание квеста отменено")
+		b.bot.Send(reply)
+		return
+	}
+
+	var response string
+
+	switch state.Step {
+	case 1:
+		state.Title = msg.Text
+		state.Step = 2
+		response = `📋 <b>Создание квеста</b>
+
+<b>Шаг 2/5:</b> Выберите тип квеста
+
+Отправьте цифру:
+1 - Ежедневный (daily)
+2 - Еженедельный (weekly)
+3 - Разовый (one_time)`
+
+	case 2:
+		switch msg.Text {
+		case "1":
+			state.QuestType = "daily"
+		case "2":
+			state.QuestType = "weekly"
+		case "3":
+			state.QuestType = "one_time"
+		default:
+			response = "❌ Неверный выбор. Отправьте 1, 2 или 3"
+		}
+		if state.QuestType != "" {
+			state.Step = 3
+			response = `📋 <b>Создание квеста</b>
+
+<b>Шаг 3/5:</b> Выберите тип действия
+
+Отправьте цифру:
+1 - Сыграть (play)
+2 - Победить (win)
+3 - Проиграть (lose)
+4 - Потратить гемы (spend_gems)
+5 - Заработать гемы (earn_gems)`
+		}
+
+	case 3:
+		switch msg.Text {
+		case "1":
+			state.ActionType = "play"
+		case "2":
+			state.ActionType = "win"
+		case "3":
+			state.ActionType = "lose"
+		case "4":
+			state.ActionType = "spend_gems"
+		case "5":
+			state.ActionType = "earn_gems"
+		default:
+			response = "❌ Неверный выбор. Отправьте число от 1 до 5"
+		}
+		if state.ActionType != "" {
+			state.Step = 4
+			response = `📋 <b>Создание квеста</b>
+
+<b>Шаг 4/5:</b> Введите целевое количество
+
+Сколько раз нужно выполнить действие?
+Например: 5, 10, 50`
+		}
+
+	case 4:
+		count, err := strconv.Atoi(msg.Text)
+		if err != nil || count <= 0 {
+			response = "❌ Введите положительное число"
+		} else {
+			state.TargetCount = count
+			state.Step = 5
+			response = `📋 <b>Создание квеста</b>
+
+<b>Шаг 5/5:</b> Введите награду
+
+Формат: gems:100 или coins:50 или gk:10
+Можно комбинировать: gems:100 coins:50`
+		}
+
+	case 5:
+		var rewardGems, rewardCoins, rewardGK int64
+		parts := strings.Fields(strings.ToLower(msg.Text))
+		for _, part := range parts {
+			if strings.HasPrefix(part, "gems:") {
+				val, _ := strconv.ParseInt(strings.TrimPrefix(part, "gems:"), 10, 64)
+				rewardGems = val
+			} else if strings.HasPrefix(part, "coins:") {
+				val, _ := strconv.ParseInt(strings.TrimPrefix(part, "coins:"), 10, 64)
+				rewardCoins = val
+			} else if strings.HasPrefix(part, "gk:") {
+				val, _ := strconv.ParseInt(strings.TrimPrefix(part, "gk:"), 10, 64)
+				rewardGK = val
+			}
+		}
+
+		if rewardGems == 0 && rewardCoins == 0 && rewardGK == 0 {
+			response = "❌ Укажите хотя бы одну награду. Формат: gems:100 или coins:50 или gk:10"
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			id, err := b.adminService.CreateQuest(ctx, state.QuestType, state.Title, "", state.ActionType, state.TargetCount, rewardGems, rewardCoins, rewardGK)
+			if err != nil {
+				response = fmt.Sprintf("❌ Ошибка создания: %v", err)
+			} else {
+				response = fmt.Sprintf(`✅ <b>Квест создан!</b>
+
+🆔 ID: %d
+📝 Название: %s
+📋 Тип: %s
+🎯 Действие: %s x%d
+🎁 Награда: %d💎 %d🪙 %dGK`, id, state.Title, state.QuestType, state.ActionType, state.TargetCount, rewardGems, rewardCoins, rewardGK)
+			}
+			delete(b.questCreation, adminID)
+		}
+	}
+
+	reply := tgbotapi.NewMessage(chatID, response)
+	reply.ParseMode = "HTML"
+	b.bot.Send(reply)
+}
+
+func (b *AdminBot) handleDeleteQuest(ctx context.Context, args string) string {
+	if args == "" {
+		return "❌ Использование: /deletequest <id>"
+	}
+
+	id, err := strconv.ParseInt(args, 10, 64)
+	if err != nil {
+		return "❌ Неверный ID квеста"
+	}
+
+	if err := b.adminService.DeleteQuest(ctx, id); err != nil {
+		return fmt.Sprintf("❌ Ошибка: %v", err)
+	}
+
+	return fmt.Sprintf("✅ Квест #%d удалён", id)
+}
+
+func (b *AdminBot) handleToggleQuest(ctx context.Context, args string) string {
+	if args == "" {
+		return "❌ Использование: /togglequest <id>"
+	}
+
+	id, err := strconv.ParseInt(args, 10, 64)
+	if err != nil {
+		return "❌ Неверный ID квеста"
+	}
+
+	newStatus, err := b.adminService.ToggleQuestActive(ctx, id)
+	if err != nil {
+		return fmt.Sprintf("❌ Ошибка: %v", err)
+	}
+
+	status := "выключен ❌"
+	if newStatus {
+		status = "включен ✅"
+	}
+
+	return fmt.Sprintf("📋 Квест #%d теперь %s", id, status)
 }

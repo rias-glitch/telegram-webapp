@@ -620,3 +620,81 @@ func (s *AdminService) GetWithdrawalNotification(ctx context.Context, withdrawal
 	w.TonAmount = float64(tonNano) / 1e9
 	return &w, nil
 }
+
+// QuestInfo represents quest information for admin
+type QuestInfo struct {
+	ID          int64  `json:"id"`
+	QuestType   string `json:"quest_type"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ActionType  string `json:"action_type"`
+	TargetCount int    `json:"target_count"`
+	RewardGems  int64  `json:"reward_gems"`
+	RewardCoins int64  `json:"reward_coins"`
+	RewardGK    int64  `json:"reward_gk"`
+	IsActive    bool   `json:"is_active"`
+}
+
+// GetAllQuests returns all quests for admin
+func (s *AdminService) GetAllQuests(ctx context.Context) ([]QuestInfo, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT id, quest_type, title, COALESCE(description, ''), action_type,
+		       target_count, reward_gems, COALESCE(reward_coins, 0), COALESCE(reward_gk, 0), is_active
+		FROM quests
+		ORDER BY is_active DESC, quest_type, sort_order, id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var quests []QuestInfo
+	for rows.Next() {
+		var q QuestInfo
+		if err := rows.Scan(&q.ID, &q.QuestType, &q.Title, &q.Description, &q.ActionType,
+			&q.TargetCount, &q.RewardGems, &q.RewardCoins, &q.RewardGK, &q.IsActive); err != nil {
+			continue
+		}
+		quests = append(quests, q)
+	}
+	return quests, nil
+}
+
+// CreateQuest creates a new quest
+func (s *AdminService) CreateQuest(ctx context.Context, questType, title, description, actionType string, targetCount int, rewardGems, rewardCoins, rewardGK int64) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(ctx, `
+		INSERT INTO quests (quest_type, title, description, action_type, target_count, reward_gems, reward_coins, reward_gk, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+		RETURNING id
+	`, questType, title, description, actionType, targetCount, rewardGems, rewardCoins, rewardGK).Scan(&id)
+	return id, err
+}
+
+// DeleteQuest deletes a quest by ID
+func (s *AdminService) DeleteQuest(ctx context.Context, id int64) error {
+	// First delete all user progress for this quest
+	_, err := s.db.Exec(ctx, `DELETE FROM user_quests WHERE quest_id = $1`, id)
+	if err != nil {
+		return err
+	}
+	// Then delete the quest itself
+	_, err = s.db.Exec(ctx, `DELETE FROM quests WHERE id = $1`, id)
+	return err
+}
+
+// ToggleQuestActive toggles quest active status
+func (s *AdminService) ToggleQuestActive(ctx context.Context, id int64) (bool, error) {
+	var newStatus bool
+	err := s.db.QueryRow(ctx, `
+		UPDATE quests SET is_active = NOT is_active WHERE id = $1 RETURNING is_active
+	`, id).Scan(&newStatus)
+	return newStatus, err
+}
+
+// GetQuestCount returns the total number of quests
+func (s *AdminService) GetQuestCount(ctx context.Context) (int, error) {
+	var count int
+	err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM quests`).Scan(&count)
+	return count, err
+}

@@ -15,6 +15,7 @@ type Config struct {
 	DatabaseURL      string
 	BotToken         string
 	BotUsername      string
+	WebAppShortName  string // short_name из BotFather для Web App
 	JWTSecret        string
 	AdminTelegramIDs []int64 // добавить в env tg id админов бота
 	AdminBotEnabled  bool
@@ -47,7 +48,12 @@ func Load() *Config {
 
 	botUsername := os.Getenv("BOT_USERNAME")
 	if botUsername == "" {
-		botUsername = "HardMine BOT" // ! если не установлено в env !
+		botUsername = "hard_mine_playbot" // ! если не установлено в env !
+	}
+
+	webAppShortName := os.Getenv("WEBAPP_SHORT_NAME")
+	if webAppShortName == "" {
+		webAppShortName = "app" // short_name из BotFather
 	}
 
 	port := os.Getenv("APP_PORT")
@@ -103,6 +109,7 @@ func Load() *Config {
 		DatabaseURL:      dbURL,
 		BotToken:         botToken,
 		BotUsername:      botUsername,
+		WebAppShortName:  webAppShortName,
 		JWTSecret:        jwtSecret,
 		AdminTelegramIDs: adminIDs,
 		AdminBotEnabled:  adminBotEnabled,

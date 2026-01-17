@@ -173,9 +173,13 @@ func registerAPIRoutes(api *gin.RouterGroup, h *handlers.Handler, authRateLimit 
 	referralRepo := repository.NewReferralRepository(h.DB)
 	botUsername := os.Getenv("BOT_USERNAME")
 	if botUsername == "" {
-		botUsername = "CryptoGamesBot"
+		botUsername = "hard_mine_playbot"
 	}
-	referralHandler := handlers.NewReferralHandler(referralRepo, botUsername)
+	webAppShortName := os.Getenv("WEBAPP_SHORT_NAME")
+	if webAppShortName == "" {
+		webAppShortName = "app"
+	}
+	referralHandler := handlers.NewReferralHandler(referralRepo, botUsername, webAppShortName)
 	referral := api.Group("/referral")
 	referral.Use(middleware.JWT())
 	{

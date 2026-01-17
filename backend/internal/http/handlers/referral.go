@@ -10,13 +10,14 @@ import (
 
 // ReferralHandler handles referral-related requests
 type ReferralHandler struct {
-	repo        *repository.ReferralRepository
-	botUsername string
+	repo            *repository.ReferralRepository
+	botUsername     string
+	webAppShortName string
 }
 
 // NewReferralHandler creates a new referral handler
-func NewReferralHandler(repo *repository.ReferralRepository, botUsername string) *ReferralHandler {
-	return &ReferralHandler{repo: repo, botUsername: botUsername}
+func NewReferralHandler(repo *repository.ReferralRepository, botUsername, webAppShortName string) *ReferralHandler {
+	return &ReferralHandler{repo: repo, botUsername: botUsername, webAppShortName: webAppShortName}
 }
 
 // GetReferralCode returns user's referral code (generates if needed)
@@ -128,9 +129,10 @@ func (h *ReferralHandler) GetReferralLink(c *gin.Context) {
 		return
 	}
 
-	// Generate Telegram bot link with referral parameter
-	// Format: https://t.me/your_bot?start=ref_CODE
-	link := "https://t.me/" + h.botUsername + "?start=ref_" + code
+	// Generate Telegram Web App direct link with referral parameter
+	// Format: https://t.me/bot_username/webapp_short_name?startapp=ref_CODE
+	// This opens the Web App directly instead of just opening the bot chat
+	link := "https://t.me/" + h.botUsername + "/" + h.webAppShortName + "?startapp=ref_" + code
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": code,
