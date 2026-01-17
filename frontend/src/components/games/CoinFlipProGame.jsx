@@ -180,22 +180,24 @@ export function CoinFlipProGame({ user, onClose, onResult }) {
                   : 'text-danger'
               }`}
             >
-              {gameState.status === 'cashed_out' ? 'YOU WON!' : 'YOU LOST!'}
+              {gameState.status === 'cashed_out'
+                ? 'ТЫ ВЫИГРАЛ!'
+                : 'НЕ ПОВЕЗЛО!'}
             </div>
             {gameState.status === 'cashed_out' && (
               <div className='text-white/60'>
-                Won{' '}
+                Выиграно{' '}
                 <span className='text-success font-bold'>
                   {gameState.win_amount}
                 </span>{' '}
-                gems at x{gameState.multiplier}
+                гемов в x{gameState.multiplier}
               </div>
             )}
             {gameState.status === 'lost' && (
               <div className='text-white/60'>
-                Lost{' '}
+                Проиграно{' '}
                 <span className='text-danger font-bold'>{gameState.bet}</span>{' '}
-                gems after {currentRound}{' '}
+                гемов после {currentRound}{' '}
                 {currentRound === 1 ? 'round' : 'rounds'}
               </div>
             )}
@@ -205,12 +207,12 @@ export function CoinFlipProGame({ user, onClose, onResult }) {
         {/* Current Win Amount */}
         {isGameActive && currentRound > 0 && (
           <div className='text-center p-3 rounded-xl bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30'>
-            <div className='text-sm text-white/60'>Current Win</div>
+            <div className='text-sm text-white/60'>Текущий выигрыш</div>
             <div className='text-2xl font-bold text-success'>
-              {gameState.potential_win} gems
+              {gameState.potential_win} гемов
             </div>
             <div className='text-xs text-white/40'>
-              Next: x{gameState.next_multiplier} (
+              Дальше: x{gameState.next_multiplier} (
               {Math.round(gameState.bet * gameState.next_multiplier)} gems)
             </div>
           </div>
@@ -268,7 +270,7 @@ export function CoinFlipProGame({ user, onClose, onResult }) {
                   disabled={loading || flipping}
                   className='flex-1'
                 >
-                  Cash Out ({gameState.potential_win})
+                  Забрать выигрыш ({gameState.potential_win})
                 </Button>
               )}
               <Button
@@ -277,16 +279,16 @@ export function CoinFlipProGame({ user, onClose, onResult }) {
                 className='flex-1'
               >
                 {flipping
-                  ? 'Flipping...'
+                  ? 'Летит в воздухе...'
                   : currentRound === 0
-                    ? 'Start Flip!'
-                    : 'Flip Again!'}
+                    ? 'Нажми,чтобы подбросить!'
+                    : 'Подбросить еще раз!'}
               </Button>
             </>
           ) : (
             <>
               <Button variant='secondary' onClick={onClose} className='flex-1'>
-                Cancel
+                Закрыть
               </Button>
               <Button
                 onClick={handleStart}
@@ -303,7 +305,7 @@ export function CoinFlipProGame({ user, onClose, onResult }) {
         {!gameState && (
           <div className='mt-4 p-3 rounded-xl bg-white/5'>
             <div className='text-sm font-medium text-white/60 mb-2'>
-              Multiplier Table
+              Множитель
             </div>
             <div className='grid grid-cols-5 gap-1 text-center text-xs'>
               {MULTIPLIERS.slice(1).map((mult, i) => (
