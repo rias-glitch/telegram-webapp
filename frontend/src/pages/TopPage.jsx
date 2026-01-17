@@ -90,13 +90,13 @@ export function TopPage({ user }) {
                 )}
               </div>
 
-              {/* Won amount */}
+              {/* Wins count */}
               <div className="text-right">
                 <div className="font-bold text-success flex items-center gap-1">
-                  <span>+{entry.won_amount?.toLocaleString()}</span>
-                  <span className="text-sm">💎</span>
+                  <span>{entry.wins_count?.toLocaleString()}</span>
+                  <span className="text-sm">🏆</span>
                 </div>
-                <div className="text-white/40 text-xs">выиграно за месяц</div>
+                <div className="text-white/40 text-xs">побед за месяц</div>
               </div>
             </Card>
           ))}
@@ -115,8 +115,8 @@ export function TopPage({ user }) {
                 <div>
                   <div className="font-semibold">Вы</div>
                   <div className="text-white/60 text-sm">
-                    {myRank.won_amount > 0
-                      ? `+${myRank.won_amount.toLocaleString()} выиграно`
+                    {myRank.wins_count > 0
+                      ? `${myRank.wins_count.toLocaleString()} побед`
                       : 'Пока нет побед'}
                   </div>
                 </div>

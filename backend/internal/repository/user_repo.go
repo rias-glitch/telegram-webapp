@@ -219,22 +219,22 @@ func (r *UserRepository) AddReferralEarnings(ctx context.Context, userID int64, 
 type TopUserEntry struct {
 	Rank      int          `json:"rank"`
 	User      domain.User  `json:"user"`
-	WonAmount int64        `json:"won_amount"`
+	WinsCount int64        `json:"wins_count"`
 }
 
-// GetMonthlyTop returns top users by winnings in the current month
+// GetMonthlyTop returns top users by wins count in the current month
 func (r *UserRepository) GetMonthlyTop(ctx context.Context, limit int) ([]TopUserEntry, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT u.id, u.tg_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''),
-		       u.gems, COALESCE(u.coins, 0), u.created_at, COALESCE(w.won, 0) as won_amount
+		       u.gems, COALESCE(u.coins, 0), u.created_at, COALESCE(w.wins, 0) as wins_count
 		FROM users u
 		LEFT JOIN (
-			SELECT user_id, SUM(CASE WHEN result = 'win' THEN win_amount ELSE 0 END) as won
+			SELECT user_id, COUNT(*) as wins
 			FROM game_history
-			WHERE created_at >= date_trunc('month', CURRENT_DATE)
+			WHERE created_at >= date_trunc('month', CURRENT_DATE) AND result = 'win'
 			GROUP BY user_id
 		) w ON w.user_id = u.id
-		ORDER BY won_amount DESC
+		ORDER BY wins_count DESC
 		LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -245,42 +245,42 @@ func (r *UserRepository) GetMonthlyTop(ctx context.Context, limit int) ([]TopUse
 	rank := 1
 	for rows.Next() {
 		var u domain.User
-		var wonAmount int64
+		var winsCount int64
 		if err := rows.Scan(&u.ID, &u.TgID, &u.Username, &u.FirstName, &u.Gems, &u.Coins,
-			&u.CreatedAt, &wonAmount); err != nil {
+			&u.CreatedAt, &winsCount); err != nil {
 			return nil, err
 		}
 		res = append(res, TopUserEntry{
 			Rank:      rank,
 			User:      u,
-			WonAmount: wonAmount,
+			WinsCount: winsCount,
 		})
 		rank++
 	}
 	return res, nil
 }
 
-// GetUserRank returns user's rank in the monthly leaderboard
+// GetUserRank returns user's rank in the monthly leaderboard (by wins count)
 func (r *UserRepository) GetUserRank(ctx context.Context, userID int64) (int, int64, error) {
 	var rank int
-	var wonAmount int64
+	var winsCount int64
 	err := r.db.QueryRow(ctx, `
 		WITH user_wins AS (
-			SELECT user_id, SUM(CASE WHEN result = 'win' THEN win_amount ELSE 0 END) as won
+			SELECT user_id, COUNT(*) as wins
 			FROM game_history
-			WHERE created_at >= date_trunc('month', CURRENT_DATE)
+			WHERE created_at >= date_trunc('month', CURRENT_DATE) AND result = 'win'
 			GROUP BY user_id
 		),
 		ranked AS (
-			SELECT u.id, COALESCE(w.won, 0) as won_amount,
-			       RANK() OVER (ORDER BY COALESCE(w.won, 0) DESC) as rank
+			SELECT u.id, COALESCE(w.wins, 0) as wins_count,
+			       RANK() OVER (ORDER BY COALESCE(w.wins, 0) DESC) as rank
 			FROM users u
 			LEFT JOIN user_wins w ON w.user_id = u.id
 		)
-		SELECT rank, won_amount FROM ranked WHERE id = $1
-	`, userID).Scan(&rank, &wonAmount)
+		SELECT rank, wins_count FROM ranked WHERE id = $1
+	`, userID).Scan(&rank, &winsCount)
 	if err != nil {
 		return 0, 0, err
 	}
-	return rank, wonAmount, nil
+	return rank, winsCount, nil
 }

@@ -28,18 +28,18 @@ func (h *Handler) GetMyRank(c *gin.Context) {
 		return
 	}
 
-	rank, wonAmount, err := h.UserRepo.GetUserRank(c.Request.Context(), userID)
+	rank, winsCount, err := h.UserRepo.GetUserRank(c.Request.Context(), userID)
 	if err != nil {
 		// If no games played, rank is 0
 		c.JSON(http.StatusOK, gin.H{
 			"rank":       0,
-			"won_amount": 0,
+			"wins_count": 0,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"rank":       rank,
-		"won_amount": wonAmount,
+		"wins_count": winsCount,
 	})
 }
